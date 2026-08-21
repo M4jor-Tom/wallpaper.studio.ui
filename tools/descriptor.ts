@@ -17,8 +17,10 @@ export type Schema = {
 
 type Part = { field: number; bytes: Uint8Array };
 
-/// Split one message into its length-delimited (wire type 2) fields, skipping
-/// every other wire type -- nothing this reader needs is a varint or fixed.
+/**
+ * Split one message into its length-delimited (wire type 2) fields, skipping
+ * every other wire type -- nothing this reader needs is a varint or fixed.
+ */
 function parts(buf: Uint8Array): Part[] {
   const out: Part[] = [];
   let i = 0;
@@ -42,6 +44,9 @@ function parts(buf: Uint8Array): Part[] {
         if ((b & 0x80) === 0) break;
         s += 7;
       }
+      if (len < 0 || i + len > buf.length) {
+        throw new Error("descriptor: a length prefix runs past the end of the buffer");
+      }
       out.push({ field, bytes: buf.subarray(i, i + len) });
       i += len;
     } else if (wire === 0) {
@@ -53,7 +58,7 @@ function parts(buf: Uint8Array): Part[] {
     } else if (wire === 1) {
       i += 8;
     } else {
-      break; // groups: not emitted by protoc for proto3
+      throw new Error(`descriptor: unexpected wire type ${wire}`); // groups: not emitted by protoc for proto3
     }
   }
   return out;

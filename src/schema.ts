@@ -50,9 +50,11 @@ export const FIELDS = [
   { kind: "color", path: "overlay.matrix.color", label: "Rain colour", def: "#395e53b3" },
 ] as const satisfies readonly Field[];
 
-/// The proto enum each control corresponds to. Only the *names* live here --
-/// the values come from FIELDS, so the list the form offers and the list the
-/// drift check verifies cannot disagree.
+/**
+ * The proto enum each control corresponds to. Only the *names* live here --
+ * the values come from FIELDS, so the list the form offers and the list the
+ * drift check verifies cannot disagree.
+ */
 const ENUM_PROTO_NAMES: Readonly<Record<string, string>> = {
   "background.motion": ".svg_builder.Background.Motion",
   "background.image": ".svg_builder.Background.Image",
@@ -60,8 +62,5 @@ const ENUM_PROTO_NAMES: Readonly<Record<string, string>> = {
 };
 
 export const DECLARED_ENUMS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  FIELDS.filter((f) => f.kind === "enum").map((f) => [
-    ENUM_PROTO_NAMES[f.path] ?? `UNMAPPED:${f.path}`,
-    (f as Extract<Field, { kind: "enum" }>).values,
-  ]),
+  FIELDS.filter((f) => f.kind === "enum").map((f) => [ENUM_PROTO_NAMES[f.path] ?? `UNMAPPED:${f.path}`, f.values]),
 );
