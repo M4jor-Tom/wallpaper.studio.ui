@@ -13,7 +13,12 @@ export function formatCfg(cfg: Cfg): string {
 export function applyText(target: Cfg, text: string): RenderError | null {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    // `__proto__` is stripped here rather than filtered at the merge: JSON.parse
+    // defines it as an ordinary own property, but Object.assign copies with
+    // [[Set]], which triggers Object.prototype's accessor and repoints the
+    // target's real prototype. A reviver returning undefined deletes the key at
+    // every depth, so nothing downstream has to know about the hazard.
+    parsed = JSON.parse(text, (k, v) => (k === "__proto__" ? undefined : v));
   } catch (e) {
     // V8 and JavaScriptCore word a JSON.parse failure differently -- JSC's
     // message carries no `position N` -- so this reports "not JSON yet"
