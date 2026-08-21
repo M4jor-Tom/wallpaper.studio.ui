@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "types": "mkdir -p vendor-types && cp -f $BGSVG_WASM/web/bgsvg_wasm.d.ts vendor-types/bgsvg_wasm.d.ts",
+    "types": ": \"${BGSVG_WASM:?BGSVG_WASM is unset -- run inside \\`nix develop\\`}\" && mkdir -p vendor-types && cp -f $BGSVG_WASM/web/bgsvg_wasm.d.ts vendor-types/bgsvg_wasm.d.ts",
     "dev": "vite",
     "build": "bun run types && tsc --noEmit && vite build",
     "preview": "vite preview",

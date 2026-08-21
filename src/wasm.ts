@@ -16,13 +16,15 @@ export type RenderError = {
 };
 
 export function isRenderError(e: unknown): e is RenderError {
-  return (
-    typeof e === "object" &&
-    e !== null &&
-    "kind" in e &&
-    "message" in e &&
-    ((e as RenderError).kind === "schema" || (e as RenderError).kind === "invalid")
-  );
+  if (typeof e !== "object" || e === null) return false;
+  const r = e as Partial<RenderError>;
+  if (r.kind !== "schema" && r.kind !== "invalid") return false;
+  if (typeof r.message !== "string") return false;
+  // line/column are optional, but if present they must be numbers -- the JSON
+  // pane indexes into text with them
+  if (r.line !== undefined && typeof r.line !== "number") return false;
+  if (r.column !== undefined && typeof r.column !== "number") return false;
+  return true;
 }
 
 let started: Promise<void> | undefined;
