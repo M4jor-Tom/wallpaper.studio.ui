@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --page: linear-gradient(135deg, #eef3f6, #dde6ec);
   --panel: #f3f7f9;
   --field: #fbfdfe;
@@ -12,7 +13,18 @@
   --space: 16px;
 }
 
+/* theme.ts defaults to prefers-color-scheme absent a saved override; mirror
+   that default here so first paint -- before the module script runs and sets
+   data-theme -- doesn't briefly draw light-scheme scrollbars and focus rings
+   on a machine whose OS is dark. Scoped to :not([data-theme]) so it only
+   applies in that pre-script window; once theme.ts sets the attribute (to
+   either value), the rules below take over regardless of OS preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) { color-scheme: dark; }
+}
+
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --page: #16212a;
   --panel: #1a2731;
   --field: #22323e;
