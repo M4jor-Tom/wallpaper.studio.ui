@@ -1,4 +1,5 @@
 import { defaults } from "./cfg.ts";
+import { initExport, slug } from "./export.ts";
 import { buildForm } from "./form.ts";
 import { createJsonPane } from "./json.ts";
 import { createPreview } from "./preview.ts";
@@ -12,6 +13,10 @@ const controls = document.querySelector<HTMLElement>("#controls")!;
 const app = document.querySelector<HTMLElement>("#app")!;
 const jsonToggle = document.querySelector<HTMLButtonElement>("#json-toggle")!;
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
+const resSelect = document.querySelector<HTMLSelectElement>("#res")!;
+const resCustom = document.querySelector<HTMLInputElement>("#res-custom")!;
+const dlSvg = document.querySelector<HTMLButtonElement>("#dl-svg")!;
+const dlJson = document.querySelector<HTMLButtonElement>("#dl-json")!;
 const cfg = defaults();
 
 function showError(e: RenderError | null): void {
@@ -34,6 +39,16 @@ await ready();
 const preview = createPreview(img, showError);
 
 /**
+ * Every redraw keeps the img's alt in step with the config it depicts.
+ * slug() is the renderer's own naming (mirrored in export.ts); this is the
+ * one place it reaches the DOM rather than a copy re-derived per call site.
+ */
+function redraw(immediate: boolean): void {
+  img.alt = slug(cfg);
+  preview.draw(cfg, immediate);
+}
+
+/**
  * The form and the JSON pane both write into `cfg` and must tell each other:
  * a control edit re-serialises the text (pane.sync in the onChange below),
  * and text that parses re-renders the form (this function, called from the
@@ -42,7 +57,7 @@ const preview = createPreview(img, showError);
 function rebuild(): void {
   buildForm(controls, cfg, (immediate) => {
     pane.sync();
-    preview.draw(cfg, immediate);
+    redraw(immediate);
   });
 }
 
@@ -50,10 +65,31 @@ const pane = createJsonPane(document.querySelector<HTMLTextAreaElement>("#json")
   showError(e);
   if (e === null) {
     rebuild();
-    preview.draw(cfg, false);
+    redraw(false);
   }
 });
 
+// The resolution error and the render error share one banner: both are
+// "why the preview isn't what you typed", and a second alert region would
+// just be two places to look during a paste that fails for either reason.
+//
+// setOutput alone only records the target size -- it takes a redraw to put
+// it on screen, which is why onSize is this wrapper and not setOutput itself.
+initExport(
+  resSelect,
+  resCustom,
+  dlSvg,
+  dlJson,
+  cfg,
+  (w, h) => {
+    preview.setOutput(w, h);
+    redraw(true);
+  },
+  (message) => {
+    showError(message === null ? null : { kind: "invalid", message });
+  },
+);
+
 rebuild();
 pane.sync();
-preview.draw(cfg, true);
+redraw(true);

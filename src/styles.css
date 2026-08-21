@@ -65,7 +65,7 @@ header h1 {
 
 header .actions { display: flex; gap: 8px; }
 
-header button {
+header button, #export button {
   font: 600 12px/1.4 ui-sans-serif, system-ui, sans-serif;
   background: var(--field);
   color: var(--ink);
@@ -76,7 +76,7 @@ header button {
   cursor: pointer;
 }
 
-header button:hover { border-color: var(--accent); }
+header button:hover, #export button:hover { border-color: var(--accent); }
 
 /* three columns at >=1100px */
 #app {
@@ -87,12 +87,16 @@ header button:hover { border-color: var(--accent); }
   min-height: 100vh;
 }
 
-#controls, #jsonpane {
+#controls, #export, #jsonpane {
   background: var(--panel);
   border: 1px solid var(--rule);
   border-radius: 8px;
   padding: var(--space);
 }
+
+/* auto-placed into row 1 alongside #controls; #export explicitly stays in
+   column 1 so it stacks under the form instead of stealing #stage's column */
+#export { grid-column: 1; }
 
 #stage { display: grid; place-items: center; min-width: 0; }
 #preview { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: var(--art-shadow); }
@@ -104,7 +108,7 @@ label, legend {
   color: var(--dim);
 }
 
-input[type="number"], input[type="color"], textarea {
+input[type="number"], input[type="color"], input[type="text"], select, textarea {
   width: 100%;
   background: var(--field);
   color: var(--ink);
@@ -149,6 +153,8 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
 .row label { display: block; }
 .row:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
 .row output { display: block; margin-top: 4px; font: 12px/1.4 ui-monospace, monospace; color: var(--dim); }
+.export-buttons { display: flex; gap: 8px; margin-bottom: 0; }
+.export-buttons button { flex: 1; }
 
 #error {
   grid-column: 1 / -1;

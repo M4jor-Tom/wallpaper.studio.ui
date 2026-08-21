@@ -17,6 +17,20 @@
     </header>
     <main id="app">
       <section id="controls" aria-label="Configuration"></section>
+      <section id="export" aria-label="Export">
+        <div class="row">
+          <label for="res">Resolution</label>
+          <select id="res"></select>
+        </div>
+        <div class="row">
+          <label for="res-custom">Custom size</label>
+          <input type="text" id="res-custom" placeholder="WIDTHxHEIGHT" autocomplete="off" />
+        </div>
+        <div class="row export-buttons">
+          <button id="dl-svg" type="button">Download SVG</button>
+          <button id="dl-json" type="button">Download JSON</button>
+        </div>
+      </section>
       <p id="error" role="alert" hidden></p>
       <section id="stage"><img id="preview" alt="" /></section>
       <section id="jsonpane">
