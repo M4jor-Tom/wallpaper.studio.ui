@@ -118,8 +118,18 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
   cursor: pointer;
 }
 .seg input:checked + label { background: var(--accent); color: var(--on-accent); }
-/* the radio is visually hidden, so its focus ring has to move to the label */
-.seg input:focus-visible + label { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+/* The radio is visually hidden, so the focus ring lives on the label. Tab
+   enters a radio group at its checked member, so that is the state a keyboard
+   user actually sees -- and there the fill is --accent, against which
+   --accent-2 measures about 1.1:1. Each fill gets the colour it was designed
+   to carry: --ink on the plain --field fill, --on-accent on --accent. */
+.seg input:focus-visible + label {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.seg input:checked:focus-visible + label {
+  outline-color: var(--on-accent);
+}
 
 /* number, toggle and colour controls: label above its input, checkbox beside
    its label -- the same one-rule-per-row rhythm as .seg's legend-over-track */
