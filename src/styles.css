@@ -1,0 +1,161 @@
+:root {
+  --page: linear-gradient(135deg, #eef3f6, #dde6ec);
+  --panel: #f3f7f9;
+  --field: #fbfdfe;
+  --rule: #2a424f2b;
+  --ink: #2a424f;
+  --dim: #2a424f8c;
+  --accent: #365665;
+  --accent-2: #395e53;
+  --on-accent: #eef3f6;
+  --art-shadow: 0 0 0 1px #2a424f26;
+  --space: 16px;
+}
+
+:root[data-theme="dark"] {
+  --page: #16212a;
+  --panel: #1a2731;
+  --field: #22323e;
+  --rule: #ffffff1c;
+  --ink: #d3e1e9;
+  --dim: #d3e1e994;
+  --accent: #6fb7d1;
+  --accent-2: #77c9a6;
+  --on-accent: #16212a;
+  --art-shadow: 0 12px 30px #0007, 0 0 0 1px #ffffff14;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--page);
+  color: var(--ink);
+  font: 400 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space);
+  padding: var(--space);
+}
+
+header h1 {
+  margin: 0;
+  font: 600 13px/1.4 ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+header .actions { display: flex; gap: 8px; }
+
+header button {
+  font: 600 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 10px 16px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+header button:hover { border-color: var(--accent); }
+
+/* three columns at >=1100px */
+#app {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 320px;
+  gap: var(--space);
+  padding: var(--space);
+  min-height: 100vh;
+}
+
+#controls, #jsonpane {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: var(--space);
+}
+
+#stage { display: grid; place-items: center; min-width: 0; }
+#preview { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: var(--art-shadow); }
+
+label, legend {
+  font: 600 10px/1.4 ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+input[type="number"], input[type="color"], textarea {
+  width: 100%;
+  background: var(--field);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 6px 8px;
+  font-family: ui-monospace, monospace;
+}
+
+textarea { min-height: 320px; resize: vertical; white-space: pre; }
+
+.seg { border: 0; margin: 0 0 var(--space); padding: 0; }
+.seg-track { display: flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--field);
+  cursor: pointer;
+}
+.seg input:checked + label { background: var(--accent); color: var(--on-accent); }
+/* the radio is visually hidden, so its focus ring has to move to the label */
+.seg input:focus-visible + label { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+/* number, toggle and colour controls: label above its input, checkbox beside
+   its label -- the same one-rule-per-row rhythm as .seg's legend-over-track */
+.row { margin: 0 0 var(--space); }
+.row label { display: block; }
+.row:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+.row output { display: block; margin-top: 4px; font: 12px/1.4 ui-monospace, monospace; color: var(--dim); }
+
+#error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--field);
+  border: 1px solid var(--accent-2);
+  color: var(--ink);
+  font-family: ui-monospace, monospace;
+}
+#error[hidden] { display: none; }
+
+/* the JSON column collapses first; the preview keeps its width longest */
+@media (max-width: 1100px) {
+  #app { grid-template-columns: 260px minmax(0, 1fr); }
+  #jsonpane { display: none; }
+  #app[data-json="open"] #jsonpane {
+    display: block;
+    grid-column: 1 / -1;
+  }
+}
+
+/* below 768px the preview pins to the top so the render is always visible */
+@media (max-width: 768px) {
+  #app { grid-template-columns: 1fr; }
+  #stage { order: -1; position: sticky; top: 0; padding: 8px 0; background: var(--page); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

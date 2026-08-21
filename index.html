@@ -4,9 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles.css" />
     <title>bgsvg studio</title>
   </head>
   <body>
+    <header>
+      <h1>bgsvg studio</h1>
+      <div class="actions">
+        <button id="json-toggle" type="button" aria-controls="jsonpane" aria-expanded="false">JSON</button>
+        <button id="theme-toggle" type="button"></button>
+      </div>
+    </header>
     <main id="app">
       <section id="controls" aria-label="Configuration"></section>
       <p id="error" role="alert" hidden></p>
