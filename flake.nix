@@ -38,10 +38,9 @@
             svg_builder.packages.${pkgs.stdenv.hostPlatform.system}.default
           ];
 
-          # Still to wire: BGSVG_WASM pointing at
-          # svg_builder.packages.${system}.bgsvg-wasm, once that output exists.
-          # It is item 5 of the WASM target task in svg_builder's ROADMAP;
-          # referencing it before then makes this flake fail to evaluate.
+          # the browser-callable module, from the same locked revision as the
+          # bgsvg binary above -- vite.config.ts resolves the @bgsvg alias to it
+          BGSVG_WASM = svg_builder.packages.${pkgs.stdenv.hostPlatform.system}.bgsvg-wasm;
         };
       });
     };

@@ -1,0 +1,17 @@
+{
+  "name": "svg-studio-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "types": "mkdir -p vendor-types && cp -f $BGSVG_WASM/web/bgsvg_wasm.d.ts vendor-types/bgsvg_wasm.d.ts",
+    "dev": "vite",
+    "build": "bun run types && tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "bun test",
+    "drift": "bun run tools/drift.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}
