@@ -11,6 +11,7 @@
     "drift": "bun run tools/drift.ts"
   },
   "devDependencies": {
+    "@types/bun": "^1.4.0",
     "typescript": "^5.6.0",
     "vite": "^6.0.0"
   }
