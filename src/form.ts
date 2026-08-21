@@ -13,11 +13,13 @@ function id(path: string, value?: string): string {
 }
 
 /**
- * Everything interpolated into the markup string goes through this. The two
- * positions that need it today are config-derived, but the form is rebuilt
- * from whatever the config holds -- including, later, pasted JSON.
+ * Everything interpolated into the markup string goes through this. Exported
+ * so it has its own test -- the config is rebuilt from whatever JSON the pane
+ * holds, including pasted text no earlier task had to treat as hostile.
+ * `&` must be replaced first, or the entities the other replacements produce
+ * (themselves starting with `&`) would be escaped a second time.
  */
-function esc(v: unknown): string {
+export function esc(v: unknown): string {
   return String(v)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -29,6 +31,19 @@ function esc(v: unknown): string {
 /** The schema is the one place a field's default lives; read it, don't restate it. */
 function defOf(path: string): unknown {
   return FIELDS.find((f) => f.path === path)?.def;
+}
+
+/**
+ * A pasted config can put any JSON value at any path. These two coerce back
+ * to the type a control needs, falling back to the schema default rather than
+ * rendering garbage -- or, for the colour control's `.slice`, throwing.
+ */
+function strOf(v: unknown, def: string): string {
+  return typeof v === "string" ? v : def;
+}
+
+function numOf(v: unknown, def: number): number {
+  return typeof v === "number" ? v : def;
 }
 
 function radios(f: Field & { kind: "enum" | "choice" }, current: string): string {
@@ -49,7 +64,7 @@ function radios(f: Field & { kind: "enum" | "choice" }, current: string): string
 function control(f: Field): string {
   switch (f.kind) {
     case "number": {
-      const v = (getPath(cfg, f.path) as number | undefined) ?? f.def;
+      const v = numOf(getPath(cfg, f.path), f.def);
       return `<div class="row" data-field="${esc(f.path)}">
         <label for="${esc(id(f.path))}">${esc(f.label)}</label>
         <input type="number" id="${esc(id(f.path))}" data-path="${esc(f.path)}" data-kind="number"
@@ -57,7 +72,7 @@ function control(f: Field): string {
       </div>`;
     }
     case "enum":
-      return radios(f, (getPath(cfg, f.path) as string | undefined) ?? f.def);
+      return radios(f, strOf(getPath(cfg, f.path), f.def));
     case "choice": {
       const present = f.branches.find((b) => getPath(cfg, `${f.path}.${b}`) !== undefined);
       return radios(f, present ?? f.def);
@@ -71,7 +86,10 @@ function control(f: Field): string {
       </div>`;
     }
     case "color": {
-      const v = (getPath(cfg, f.path) as string | undefined) ?? f.def;
+      // getPath can hand back anything a pasted config puts here -- a number,
+      // an object, an array. strOf falls back to the schema default so
+      // `.slice` below always has a string to work with.
+      const v = strOf(getPath(cfg, f.path), f.def);
       return `<div class="row" data-field="${esc(f.path)}">
         <label for="${esc(id(f.path))}">${esc(f.label)}</label>
         <input type="color" id="${esc(id(f.path))}" data-path="${esc(f.path)}" data-kind="color"
@@ -109,7 +127,10 @@ export function buildForm(
   root.innerHTML = FIELDS.map(control).join("");
   syncForm();
 
-  root.addEventListener("input", (ev) => {
+  // Assignment, not addEventListener: pasted JSON now makes buildForm re-run
+  // on the same root (rebuild()), and addEventListener would stack a new
+  // listener on every paste, firing the handler that many times per keystroke.
+  root.oninput = (ev) => {
     const el = ev.target as HTMLInputElement;
     const path = el.dataset.path;
     const kind = el.dataset.kind;
@@ -135,12 +156,12 @@ export function buildForm(
         break;
       case "color": {
         // the picker gives #rrggbb; keep the alpha the config already carried
-        const prev = (getPath(cfg, path) as string | undefined) ?? (defOf(path) as string);
+        const prev = strOf(getPath(cfg, path), defOf(path) as string);
         setPath(cfg, path, el.value + (prev.length === 9 ? prev.slice(7) : ""));
         break;
       }
     }
     syncForm();
     notify(kind === "enum" || kind === "choice" || kind === "toggle");
-  });
+  };
 }
