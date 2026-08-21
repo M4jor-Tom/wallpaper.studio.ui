@@ -9,7 +9,7 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": ["vite/client", "@types/bun"],
-    "paths": { "@bgsvg/*": ["./vendor-types/*"] }
+    "paths": { "@bgsvg/*": ["./vendor/*"] }
   },
   "include": ["src", "tools"]
 }
