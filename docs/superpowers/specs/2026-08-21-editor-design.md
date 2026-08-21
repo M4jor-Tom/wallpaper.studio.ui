@@ -55,9 +55,13 @@ Three artifacts come from that one locked revision:
 
 | artifact | from | used for |
 |---|---|---|
-| `.wasm` + JavaScript glue | `packages.bgsvg-wasm` | rendering |
-| generated `.d.ts` | `packages.bgsvg-wasm` | typechecking the ABI |
+| `.wasm` + JavaScript glue | `${packages.bgsvg-wasm}/web` | rendering |
+| generated `.d.ts` | `${packages.bgsvg-wasm}/web` | typechecking the ABI |
 | `descriptor.bin` | `${packages.default}/bin/bgsvg --descriptor` | the drift check |
+
+That package emits two subdirectories from one `.wasm` — `web/` for a bundler
+to consume, and `nodejs/` for the byte-identity sweep upstream. Only the
+JavaScript glue differs between them, so rendered bytes cannot.
 
 One revision for all three is a requirement, not a convenience: a drift check
 run against a different revision's descriptor than the module was built from
