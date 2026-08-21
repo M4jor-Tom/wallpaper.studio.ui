@@ -1,21 +1,21 @@
 import { defaults } from "./cfg.ts";
 import { buildForm } from "./form.ts";
-import { ready, render } from "./wasm.ts";
+import { createPreview } from "./preview.ts";
+import { ready } from "./wasm.ts";
+import type { RenderError } from "./wasm.ts";
 
 const img = document.querySelector<HTMLImageElement>("#preview")!;
+const banner = document.querySelector<HTMLParagraphElement>("#error")!;
 const cfg = defaults();
 
-let url: string | undefined;
-function draw(): void {
-  const svg = render(JSON.stringify(cfg), 640, 360);
-  const next = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
-  // revoking is not hygiene -- it is the difference between steady memory and
-  // leaking a blob per render once this loop runs on every keystroke
-  if (url) URL.revokeObjectURL(url);
-  img.src = next;
-  url = next;
+function showError(e: RenderError | null): void {
+  banner.hidden = e === null;
+  banner.textContent = e ? e.message : "";
 }
 
 await ready();
-buildForm(document.querySelector<HTMLElement>("#controls")!, cfg, draw);
-draw();
+const preview = createPreview(img, showError);
+buildForm(document.querySelector<HTMLElement>("#controls")!, cfg, (immediate) =>
+  preview.draw(cfg, immediate),
+);
+preview.draw(cfg, true);
