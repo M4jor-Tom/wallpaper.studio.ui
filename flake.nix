@@ -8,7 +8,10 @@
     # descriptor.bin must all come from ONE revision: tools/drift.ts compares
     # the descriptor against src/schema.ts, and a descriptor from a different
     # revision than the module was built from proves nothing. The lockfile is
-    # what guarantees that -- which is why there is no vendoring script here.
+    # what guarantees that: package.json's `types` script vendors the .d.ts,
+    # the .js and the .wasm into vendor/, but only ever out of the BGSVG_WASM
+    # this shell exports, so vendor/ cannot come from a revision the lock does
+    # not name.
     #
     # Changes upstream reach this repository only once pushed; adopt them with
     #   nix flake update svg_builder

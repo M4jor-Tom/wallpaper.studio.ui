@@ -4,10 +4,12 @@
 import init, { render, resolutions, resolve_resolution } from "@bgsvg/bgsvg_wasm.js";
 import wasmUrl from "@bgsvg/bgsvg_wasm_bg.wasm?url";
 
-/// What the module throws. It crosses the boundary as an untyped JsValue, so
-/// this declaration is an assertion about a contract owned by svg_builder --
-/// `tools/`'s and Task 4's tests check it against the real module rather than
-/// trusting these lines.
+/**
+ * What the module throws. It crosses the boundary as an untyped JsValue, so
+ * this declaration is an assertion about a contract owned by svg_builder --
+ * `tools/`'s and Task 4's tests check it against the real module rather than
+ * trusting these lines.
+ */
 export type RenderError = {
   kind: "schema" | "invalid";
   message: string;
@@ -29,7 +31,7 @@ export function isRenderError(e: unknown): e is RenderError {
 
 let started: Promise<void> | undefined;
 
-/// Idempotent: every caller awaits the same instantiation.
+/** Idempotent: every caller awaits the same instantiation. */
 export function ready(): Promise<void> {
   started ??= init({ module_or_path: wasmUrl }).then(() => undefined);
   return started;
