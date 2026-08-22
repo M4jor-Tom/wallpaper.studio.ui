@@ -27,6 +27,42 @@
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
     in
     {
+      # `nix run` starts the editor. It runs against your checkout rather than a
+      # built derivation, deliberately: vite needs node_modules and the module
+      # vendored into vendor/, neither of which lives in the store, and
+      # packaging bun's dependency tree for Nix buys nothing while that tree is
+      # vite plus typescript. So this is the README's three commands in one,
+      # not a sandboxed build.
+      apps = forAll (
+        pkgs:
+        let
+          system = pkgs.stdenv.hostPlatform.system;
+          ui = pkgs.writeShellApplication {
+            name = "svg-studio-ui";
+            runtimeInputs = [ pkgs.bun ];
+            text = ''
+              if [ ! -f package.json ] || [ ! -f vite.config.ts ]; then
+                echo "svg-studio-ui: run this from the svg.studio.ui checkout" >&2
+                exit 1
+              fi
+              # the same locked revision the devShell exports, so `nix run` and
+              # `nix develop` can never render through different modules
+              export BGSVG_WASM="${svg_builder.packages.${system}.bgsvg-wasm}"
+              [ -d node_modules ] || bun install
+              bun run types
+              exec bun run dev "$@"
+            '';
+          };
+        in
+        rec {
+          svg-studio-ui = {
+            type = "app";
+            program = "${ui}/bin/svg-studio-ui";
+          };
+          default = svg-studio-ui;
+        }
+      );
+
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
           # bun is runtime, package manager and TypeScript execution in one

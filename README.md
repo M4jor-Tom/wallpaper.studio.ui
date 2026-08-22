@@ -7,6 +7,18 @@ running a binary to see what a change did.
 ## Running it
 
 ```bash
+nix run
+```
+
+That is the whole thing: it installs dependencies if they are missing, vendors
+the renderer module out of the locked revision, and starts the dev server. Run
+it from a checkout -- it works against your working tree rather than a built
+derivation, because vite needs `node_modules` and `vendor/`, neither of which
+lives in the Nix store.
+
+To work on it rather than just run it:
+
+```bash
 nix develop
 bun install
 bun run dev
@@ -15,7 +27,8 @@ bun run dev
 `nix develop` provides the toolchain: **bun** (runtime, package manager and
 TypeScript execution in one binary) and the `bgsvg` CLI used by the drift
 check below. Everything else -- `bun run dev`, `bun test`, `bun run build` --
-runs inside that shell.
+runs inside that shell. Both paths export the same `BGSVG_WASM` from the same
+locked revision, so they cannot render through different modules.
 
 ## The three columns
 
