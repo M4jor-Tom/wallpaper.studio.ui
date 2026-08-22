@@ -50,7 +50,47 @@
               export BGSVG_WASM="${svg_builder.packages.${system}.bgsvg-wasm}"
               [ -d node_modules ] || bun install
               bun run types
-              exec bun run dev "$@"
+              ${
+                if pkgs.stdenv.hostPlatform.isLinux then
+                  ''
+                    # The editor is surf -- a bare WebKitGTK view, no tabs, no
+                    # toolbar, ~280 MiB -- and it shares a lifetime with the
+                    # server behind it: close the window and vite stops, ^C and
+                    # the window goes.
+                    #
+                    # Not vite's own --open, which hands the URL to $BROWSER
+                    # (normally the very firefox this avoids) and spawns it
+                    # detached, leaving nothing to tie the two together. Telling
+                    # surf the URL instead means pinning one first: IPv4 because
+                    # vite's default listens on [::1] alone, which the readiness
+                    # probe could never reach.
+                    if (exec 3<>/dev/tcp/127.0.0.1/5173) 2>/dev/null; then
+                      # the probe cannot tell our server from anyone else's, so
+                      # a port already held would open a window onto it and wait
+                      echo "svg-studio-ui: 127.0.0.1:5173 is already in use" >&2
+                      exit 1
+                    fi
+                    bun run dev --host 127.0.0.1 --port 5173 --strictPort "$@" &
+                    server=$!
+                    until (exec 3<>/dev/tcp/127.0.0.1/5173) 2>/dev/null; do
+                      kill -0 "$server" 2>/dev/null ||
+                        { echo "svg-studio-ui: dev server exited before it was listening" >&2; exit 1; }
+                      sleep 0.1
+                    done
+                    ${pkgs.surf}/bin/surf http://127.0.0.1:5173/ &
+                    window=$!
+                    # backgrounded so the shell waits in `wait`, where it still
+                    # runs traps: a foreground child defers them until it exits,
+                    # which is the one moment they are no use
+                    trap 'kill "$server" "$window" 2>/dev/null' EXIT INT TERM
+                    wait "$window"
+                  ''
+                else
+                  ''
+                    # no window here: surf is X11/GTK, and nothing else is light
+                    exec bun run dev "$@"
+                  ''
+              }
             '';
           };
         in

@@ -11,10 +11,22 @@ nix run
 ```
 
 That is the whole thing: it installs dependencies if they are missing, vendors
-the renderer module out of the locked revision, and starts the dev server. Run
-it from a checkout -- it works against your working tree rather than a built
-derivation, because vite needs `node_modules` and `vendor/`, neither of which
-lives in the Nix store.
+the renderer module out of the locked revision, starts the dev server and opens
+the editor in a window. Run it from a checkout -- it works against your working
+tree rather than a built derivation, because vite needs `node_modules` and
+`vendor/`, neither of which lives in the Nix store.
+
+On Linux the window is [surf](https://surf.suckless.org/): a bare WebKitGTK
+view, no tabs and no toolbar, around 280 MiB resident. That is roughly the
+floor -- this editor's JS needs a real engine, so the choice is which WebKit or
+Blink, not whether to have one. Closing the window stops the server, and `^C`
+in the terminal closes the window; there is no way to leave half of it running.
+
+Because surf has to be told a URL before vite could print one, the port is
+pinned to `127.0.0.1:5173`. If something already holds it -- a second editor,
+usually -- `nix run` says so and stops rather than opening a window onto it.
+For your own browser, another port, or a server with no window, use the
+`nix develop` path below.
 
 To work on it rather than just run it:
 
