@@ -1,7 +1,7 @@
 import { defaults } from "./cfg.ts";
 import { initExport, slug } from "./export.ts";
 import { buildForm } from "./form.ts";
-import { createJsonPane } from "./json.ts";
+import { createJsonPane, errorText } from "./json.ts";
 import { createPreview } from "./preview.ts";
 import { initTheme } from "./theme.ts";
 import { ready } from "./wasm.ts";
@@ -17,11 +17,14 @@ const resSelect = document.querySelector<HTMLSelectElement>("#res")!;
 const resCustom = document.querySelector<HTMLInputElement>("#res-custom")!;
 const dlSvg = document.querySelector<HTMLButtonElement>("#dl-svg")!;
 const dlJson = document.querySelector<HTMLButtonElement>("#dl-json")!;
+const copyJson = document.querySelector<HTMLButtonElement>("#copy-json")!;
 const cfg = defaults();
 
 function showError(e: RenderError | null): void {
   banner.hidden = e === null;
-  banner.textContent = e ? e.message : "";
+  // The module is handed JSON.stringify(cfg), so that -- not the pane's
+  // indented copy -- is the text its line/column point into.
+  banner.textContent = e ? errorText(e, JSON.stringify(cfg)) : "";
 }
 
 initTheme(themeToggle);
@@ -35,7 +38,18 @@ jsonToggle.addEventListener("click", () => {
   jsonToggle.setAttribute("aria-expanded", String(!open));
 });
 
-await ready();
+try {
+  await ready();
+} catch (e) {
+  // Without this the page is a header and nothing else: every line below
+  // depends on the module, and the failure has no other place to surface.
+  showError({
+    kind: "invalid",
+    message: `the renderer did not load: ${e instanceof Error ? e.message : String(e)}`,
+  });
+  throw e;
+}
+
 const preview = createPreview(img, showError);
 
 /**
@@ -80,10 +94,13 @@ initExport(
   resCustom,
   dlSvg,
   dlJson,
+  copyJson,
   cfg,
   (w, h) => {
+    // Not immediate: `input` on the custom-size field fires per keystroke, and
+    // 1920x1, 1920x10, 1920x108 are each a full synchronous render otherwise.
     preview.setOutput(w, h);
-    redraw(true);
+    redraw(false);
   },
   (message) => {
     showError(message === null ? null : { kind: "invalid", message });
