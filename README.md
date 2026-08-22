@@ -10,11 +10,13 @@ running a binary to see what a change did.
 nix run
 ```
 
-That is the whole thing: it installs dependencies if they are missing, vendors
-the renderer module out of the locked revision, starts the dev server and opens
-the editor in a window. Run it from a checkout -- it works against your working
-tree rather than a built derivation, because vite needs `node_modules` and
-`vendor/`, neither of which lives in the Nix store.
+That is the whole thing, and it needs no checkout to be in. The site is built
+in the Nix sandbox -- `node_modules` out of `bun.lock`, the renderer out of the
+locked revision -- and what runs is the four static files vite emits, served
+from the store by [darkhttpd](https://unix4lyfe.org/darkhttpd/). No
+`bun install`, no bun at runtime, nothing read from your working tree. Install
+it with `nix profile install`, or depend on `packages.default` from another
+flake, and it behaves the same way.
 
 On Linux the window is [surf](https://surf.suckless.org/): a bare WebKitGTK
 view, no tabs and no toolbar, around 280 MiB resident. That is roughly the
@@ -22,13 +24,23 @@ floor -- this editor's JS needs a real engine, so the choice is which WebKit or
 Blink, not whether to have one. Closing the window stops the server, and `^C`
 in the terminal closes the window; there is no way to leave half of it running.
 
-Because surf has to be told a URL before vite could print one, the port is
-pinned to `127.0.0.1:5173`. If something already holds it -- a second editor,
-usually -- `nix run` says so and stops rather than opening a window onto it.
-For your own browser, another port, or a server with no window, use the
-`nix develop` path below.
+Because surf has to be told a URL before the server could print one, the port
+is pinned: `127.0.0.1:5174` here, `127.0.0.1:5173` for the dev server below, so
+the two can run side by side. If something already holds the port -- a second
+editor, usually -- the app says so and stops rather than opening a window onto
+it. For your own browser, another port, or a server with no window at all,
+`nix build .#site` gives you the directory to serve however you like.
 
-To work on it rather than just run it:
+To work on the editor rather than just run it:
+
+```bash
+nix run .#dev
+```
+
+Same window, same shared lifetime, but vite against your working tree, so
+edits reload. That one does need a checkout to run from: vite wants
+`node_modules` and `vendor/`, neither of which lives in the Nix store. Or take
+the pieces apart:
 
 ```bash
 nix develop
@@ -37,10 +49,12 @@ bun run dev
 ```
 
 `nix develop` provides the toolchain: **bun** (runtime, package manager and
-TypeScript execution in one binary) and the `bgsvg` CLI used by the drift
-check below. Everything else -- `bun run dev`, `bun test`, `bun run build` --
-runs inside that shell. Both paths export the same `BGSVG_WASM` from the same
-locked revision, so they cannot render through different modules.
+TypeScript execution in one binary), **bun2nix** (rewrites `bun.nix` from
+`bun.lock`, which `bun install` already does for you) and the `bgsvg` CLI used
+by the drift check below. Everything else -- `bun run dev`, `bun test`,
+`bun run build` -- runs inside that shell. Every path exports the same
+`BGSVG_WASM` from the same locked revision, so none of them can render through
+a different module.
 
 ## The three columns
 
@@ -78,7 +92,8 @@ Two commands follow from that:
 ## Checks
 
 ```bash
-bun test        # unit tests, after vendoring the module's .d.ts/.js/.wasm
-bun run drift   # src/schema.ts vs the locked revision's bgsvg --descriptor
-bun run build   # vendors the module's .d.ts/.js/.wasm, then tsc --noEmit, then vite build
+bun test         # unit tests, after vendoring the module's .d.ts/.js/.wasm
+bun run drift    # src/schema.ts vs the locked revision's bgsvg --descriptor
+bun run build    # vendors the module's .d.ts/.js/.wasm, then tsc --noEmit, then vite build
+nix build .#site # the same build, sandboxed, from bun.lock and the lockfile alone
 ```

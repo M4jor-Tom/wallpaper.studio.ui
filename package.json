@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "types": ": \"${BGSVG_WASM:?BGSVG_WASM is unset -- run inside \\`nix develop\\`}\" && mkdir -p vendor && cp -f $BGSVG_WASM/web/bgsvg_wasm.d.ts $BGSVG_WASM/web/bgsvg_wasm.js $BGSVG_WASM/web/bgsvg_wasm_bg.wasm vendor/",
+    "postinstall": "! command -v bun2nix >/dev/null || bun2nix -o bun.nix",
     "dev": "vite",
     "build": "bun run types && tsc --noEmit && vite build",
     "preview": "vite preview",
