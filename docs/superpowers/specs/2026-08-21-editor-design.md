@@ -1,6 +1,6 @@
 # Editor — a browser UI for the bgsvg config
 
-**Status:** designed, not implemented · **Date:** 2026-08-21
+**Status:** implemented · **Date:** 2026-08-21
 
 ## Problem
 
@@ -65,8 +65,19 @@ JavaScript glue differs between them, so rendered bytes cannot.
 
 One revision for all three is a requirement, not a convenience: a drift check
 run against a different revision's descriptor than the module was built from
-proves nothing. `flake.lock` guarantees that; a hand-managed vendor step only
-promises it, which is why there is no vendoring script here.
+proves nothing. `flake.lock` guarantees that.
+
+`descriptor.bin` is never written to disk: `tools/drift.ts` invokes
+`bgsvg --descriptor` directly from the dev shell and reads its output, so
+there is nothing to vendor or go stale for the drift check itself.
+
+The `.wasm` and its generated `.d.ts` are different: `tsconfig` needs the
+`.d.ts` inside the project, so `package.json`'s `types` script copies it,
+together with the runtime `.js`/`.wasm` glue, from `$BGSVG_WASM` into a
+git-ignored `vendor/`. That copy source is still the store path `flake.lock`
+pins, so the single-revision guarantee is intact -- what a hand-managed step
+changes is how much of that one revision is copied onto disk, not where it
+comes from.
 
 The API surface is typechecked rather than trusted — `wasm-bindgen` emits the
 `.d.ts`, so an ABI change at a new pin fails `tsc` rather than at runtime.
@@ -86,8 +97,12 @@ dependencies in Nix, which is real work and buys nothing yet.
 
 ## Decisions
 
-**Vanilla TypeScript, built with Vite. No framework.** Six controls do not
-justify a runtime. State is one object and re-rendering is one function call,
+**Vanilla TypeScript, built with Vite. No framework.** Eight controls do not
+justify a runtime -- each `oneof` (`icon`, `overlay.matrix`) needs a branch
+selector *and* the selected branch's own fields, so the form is seed,
+background.motion, background.image, icon glyph, icon.hexatri.motion, matrix
+on/off, matrix angle and matrix colour. State is one object and re-rendering
+is one function call,
 so the whole reactive layer is roughly 30 lines. Shipping 0 KB of framework
 matters when the payload already carries a WASM module.
 
@@ -134,10 +149,10 @@ and every override needed to make it presentable rebuilds the hand-written form
 underneath a descriptor walker.
 
 So `src/schema.ts` **declares** the fields and enum values the form offers, and
-`tools/drift.ts` compares that declaration against `vendor/descriptor.bin`,
-failing CI when the schema holds a value the form does not. `schema.ts` is also
-what the form is built from, so a field cannot be in the check and missing from
-the UI.
+`tools/drift.ts` compares that declaration against `bgsvg --descriptor`,
+invoked directly from the dev shell rather than vendored to disk, failing CI
+when the schema holds a value the form does not. `schema.ts` is also what the
+form is built from, so a field cannot be in the check and missing from the UI.
 
 Nothing upstream catches this: `valid_configs` enumerates the Rust enums, so a
 new `Background.Motion` variant grows both of `svg_builder`'s test surfaces and
@@ -241,13 +256,33 @@ every width.
   including the focus-arbitration path.
 - **Browser verification** via `playwright-cli`, per the agent instructions.
 
-## To verify during implementation
+## Verified during implementation
 
-**Does `prefers-reduced-motion` still resolve inside an `<img>`-loaded SVG?**
-Every animated element in the renderer rests in a state reduced motion falls
-back to, and that guarantee must survive the delivery mechanism. If it does not
-hold for `<img>`, the fallback is an inline `<svg>`, paid for in main-document
-node count.
+**No -- `prefers-reduced-motion` does not resolve inside the `<img>`-loaded
+SVG.** The rendered SVG carries its own `<style>` with
+`@media (prefers-reduced-motion: reduce){*{animation:none!important}}`, so the
+rule reaches the browser. But loading a config with `background.motion =
+LIGHTS` in Chromium via `playwright-cli`, capturing `#preview` twice a second
+apart under `page.emulateMedia({ reducedMotion: 'reduce' })`, showed the two
+captures differing by the same order of magnitude as the two captures taken
+without that emulation (~12.6% of RGBA bytes changed either way, against a
+verified-zero baseline for a genuinely static config) -- the animation keeps
+running. The top-level document's own `matchMedia('(prefers-reduced-motion:
+reduce)')` correctly reports `true` throughout, so the preference reaches the
+page; it just does not reach the image resource `<img>` decodes and renders
+internally. This matches the `<img>`-vs-`<iframe>` distinction Chromium draws
+for media-feature emulation: an `<iframe>` is a nested browsing context that
+inherits it, an `<img>` is decoded through the image-resource pipeline, which
+does not.
+
+This was checked against Playwright's *emulated* `prefers-reduced-motion`
+under Chromium specifically; a real OS-level preference was not available to
+test in this environment, so whether it fares differently is unconfirmed.
+
+Per the design's own instruction, this is reported rather than acted on: an
+inline `<svg>` is the fallback this finding would motivate, and that trade
+costs the ~1800 animated nodes this delivery mechanism exists to keep out of
+the main document's style tree. Adopting it is the controller's call.
 
 **The module's download size**, which is measured upstream but budgeted here.
 It dominates the payload; ~8 KB of JavaScript and ~4 KB of CSS do not.
