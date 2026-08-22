@@ -32,8 +32,11 @@ treats that module's API as given.
   render-on-hover cache. Out of scope.
 - **No URL permalink**, no server, no persistence beyond the theme preference.
 - **No preview performance controls.** No pause toggle and no preview-resolution
-  selector; `prefers-reduced-motion` already gives a system-level pause, and
-  the preview sizes itself (see **Preview**).
+  selector; `prefers-reduced-motion` already gives a system-level pause -- via
+  the conditional inline `<svg>` delivery described in **Preview** and
+  confirmed in **Verified during implementation**, not through the `<img>`
+  path alone, which does not see the preference -- and the preview sizes
+  itself (see **Preview**).
 
 ## Toolchain and dependency
 
@@ -111,9 +114,14 @@ produced, so it gets a column rather than a drawer, and it round-trips — a
 control writes into it, and pasting a config moves the controls. That is how a
 corpus config or a `docs/mood/samples/` file gets loaded.
 
-The cost of three columns is preview width, so both dividers drag with
-persisted widths, and the JSON column collapses to a labelled rail via a
-chevron.
+The cost of three columns is preview width. `#app` is a fixed CSS grid
+(`grid-template-columns: 260px minmax(0, 1fr) 320px` in `src/styles.css`) --
+there are no draggable dividers and no persisted widths, which the Non-goals
+above already rule out ("no persistence beyond the theme preference"; a
+dragged-and-remembered width would be exactly that persistence). Below 1100px
+the JSON column drops out of the grid (`#jsonpane { display: none; }`) and a
+header button labelled "JSON" toggles it back as a full-width row under the
+preview -- there is no chevron and no rail.
 
 **Blueprint is the light theme, Void is the dark.** One design system, two
 token sets, defaulting to `prefers-color-scheme` with an override persisted to
@@ -150,9 +158,11 @@ underneath a descriptor walker.
 
 So `src/schema.ts` **declares** the fields and enum values the form offers, and
 `tools/drift.ts` compares that declaration against `bgsvg --descriptor`,
-invoked directly from the dev shell rather than vendored to disk, failing CI
-when the schema holds a value the form does not. `schema.ts` is also what the
-form is built from, so a field cannot be in the check and missing from the UI.
+invoked directly from the dev shell rather than vendored to disk, exiting
+non-zero when the schema holds a value the form does not -- run by hand as
+`bun run drift` (see **Testing**; this repository has no CI to fail).
+`schema.ts` is also what the form is built from, so a field cannot be in the
+check and missing from the UI.
 
 Nothing upstream catches this: `valid_configs` enumerates the Rust enums, so a
 new `Background.Motion` variant grows both of `svg_builder`'s test surfaces and
@@ -164,12 +174,12 @@ still never reaches these controls.
 src/schema.ts     declared fields + enums — one source for the form and the drift check
 src/form.ts       builds controls from schema.ts, writes into cfg
 src/json.ts       the JSON pane, round-trips with cfg
-src/preview.ts    wasm call, blob swap, debounce
+src/preview.ts    wasm call, blob swap, debounce, inline <svg> under reduced motion
 src/export.ts     download .svg at a resolution, copy/download .json
 src/theme.ts      Blueprint/Void, prefers-color-scheme default, localStorage override
 src/main.ts       wiring
 src/styles.css    tokens and the three-column grid
-tools/drift.ts    descriptor.bin vs schema.ts — CI
+tools/drift.ts    live `bgsvg --descriptor` vs schema.ts — run manually, no CI
 flake.nix         devShell (bun) + svg_builder as a locked input
 ```
 
@@ -206,9 +216,11 @@ needed: paint cost follows pixel area, composition does not.
 The document goes into an `<img>` through `URL.createObjectURL`, **revoking the
 previous URL on every swap**. Skipping that leaks a 48–222 KB blob per
 keystroke — the one way this design would quietly become a memory consumer.
-An `<img>` also keeps roughly 1800 animated nodes out of the main document's
-style tree under `CLOSEOPEN` with `STARFIELD`, which `docs/mood/README.md`
-measures at ~1 GB of renderer memory when inlined.
+An `<img>` -- the default; a reader who prefers reduced motion gets an inline
+`<svg>` instead, see **Verified during implementation** -- also keeps roughly
+1800 animated nodes out of the main document's style tree under `CLOSEOPEN`
+with `STARFIELD`, which `docs/mood/README.md` measures at ~1 GB of renderer
+memory when inlined.
 
 ## Errors
 
@@ -219,15 +231,40 @@ it:
 
 | `kind` | where it surfaces |
 |---|---|
-| `"schema"` | the offending line in the JSON pane, underlined, using `line`/`column` |
-| `"invalid"` | a banner above the fieldset the message names |
-| — (a trap) | a banner, and the module is reinitialised |
+| `"schema"` | the `#error` banner, quoting the offending line with a caret under the column |
+| `"invalid"` | the same `#error` banner |
+| anything else the module throws | coerced to `kind: "invalid"` and shown in the same banner -- no reinitialisation |
+
+All three routes end at the same place: the single `#error` element
+(`role="alert"`), fixed in the page grid. No error is routed to sit beside the
+fieldset or field its message names.
+
+For `"schema"`, the JSON pane draws no underline in its own text -- a
+`<textarea>` cannot render a decoration inside itself. `errorText(e, source)`
+in `src/json.ts` instead quotes the offending line,
+`source.split("\n")[e.line - 1]`, windowed to 60 characters around the column
+so a long line does not wrap the caret out from under itself, then appends a
+line of spaces and a `^` under the named column. `source` must be
+`JSON.stringify(cfg)` -- the minified string `main.ts` actually hands the
+module to render (`showError` in `main.ts` builds it that way) -- not the
+pane's indented copy of the same config: the module's `serde_json` `line`/
+`column` index into what it parsed, so quoting the pane's pretty-printed text
+at that position would put the caret under an unrelated character.
 
 Only one `"invalid"` error is reachable from the controls — `CLOSEOPEN` with
 `NONE` — because the angle slider is bounded to 0–360, the colour comes from a
-picker, and the enums are segmented controls that cannot hold an unknown value.
-Its message names both fields, so it renders above the Background fieldset. Any
-other `"invalid"` can only arrive from the JSON pane, and shows there.
+picker, and the enums are segmented controls that cannot hold an unknown
+value. Its message names both fields, but the banner does not move to sit
+above the Background fieldset — it is the one `#error` element regardless of
+which control or pane raised it. Any other `"invalid"` can only arrive from
+the JSON pane, and shows in the same banner.
+
+There is no reinitialisation path. `wasm.ts`'s `ready()` memoises its
+instantiation promise (`started ??= init(...)`) and nothing ever resets it, so
+a later render error never re-runs module init. A throw that is not a
+well-formed `RenderError` -- checked by `isRenderError()` -- is coerced to
+`{ kind: "invalid", message: String(e) }` inside `preview.ts`'s `paint()` and
+surfaces exactly like any other `"invalid"` error.
 
 ## Type, accessibility, responsiveness
 
@@ -241,20 +278,42 @@ the elements rather than reconstructed ARIA. Labels are visible, focus rings
 are kept, touch targets are at least 44×44 in the narrow layout, and the
 preview `<img>` takes its `alt` from the config's slug, which already reads as
 a description: *lights-rotate-hexatri-space-matrix*. Every text-on-background
-pair is verified at 4.5:1.
+pair is verified at 4.5:1 -- 5.03:1 worst case (`--dim` unchecked `.seg` label
+on `--field`, dark theme), measured by sampling rendered pixels rather than
+trusting `getComputedStyle`.
 
-Breakpoints: three columns at ≥1100px; between 768px and 1100px the JSON column
-collapses to a rail and reopens as an overlay; below 768px the preview pins to
-the top with Form and JSON as two tabs beneath, so the render stays visible at
-every width.
+Breakpoints: three columns at ≥1100px. Between 768px and 1100px `#jsonpane` is
+`display: none`; the header's "JSON" button (`aria-controls="jsonpane"`,
+`aria-expanded`) reopens it as a full-width grid row below the preview -- not
+a rail, not an overlay. Below 768px the grid drops to one column with
+`#stage` pinned first (`position: sticky; top: 0`), then controls, export,
+error and json in that order -- the row order the media query's
+`grid-template-areas` sets, not raw document order -- with no tabs anywhere.
+The goal holds at every width either way: the render stays visible; the
+mechanism is a sticky stage inside a reflowed grid, not tabs or an overlay.
 
 ## Testing
 
-- **`tools/drift.ts`** in CI — fails when `descriptor.bin` holds a field or
-  enum value `schema.ts` does not declare.
-- **A round-trip test** — `form → cfg → JSON → parse → cfg` is stable,
-  including the focus-arbitration path.
-- **Browser verification** via `playwright-cli`, per the agent instructions.
+- **`tools/drift.ts`**, run as a documented command (`bun run drift`), not
+  wired into any CI — this repository has no CI of any kind (no `.github/`,
+  no workflow anywhere), and neither does the sibling `svg_builder`
+  repository: both treat their checks (`cargo test` and `golden.py` there,
+  `bun test` and `bun run drift` here) as commands a developer runs
+  deliberately rather than automation that gates a merge. It fails when
+  `bgsvg --descriptor`, invoked live from the dev shell, holds a field or enum
+  value `schema.ts` does not declare — nothing is read from a vendored
+  `descriptor.bin`; see **Toolchain and dependency**.
+- **A round-trip test** (`src/json.test.ts`) — `cfg` → JSON (via `formatCfg`)
+  → parse (via `applyText`) → `cfg` is stable. The form is not part of this
+  test, and focus arbitration is not exercised by it: the unit test
+  environment has no DOM at all (devDependencies are `@types/bun`,
+  `typescript`, `vite` — no jsdom or happy-dom), so no `bun test` file can
+  reach `document`. `src/form.test.ts`, `src/export.test.ts` and
+  `src/preview.test.ts` are likewise pure-function tests (`esc`,
+  `slug`/`parseResolutions`, `fitTo`) for the same reason.
+- **Browser verification** via `playwright-cli`, per the agent instructions —
+  this is what actually exercises the DOM: focus arbitration between the form
+  and the JSON pane, the breakpoints, and the banner.
 
 ## Verified during implementation
 
@@ -279,10 +338,30 @@ This was checked against Playwright's *emulated* `prefers-reduced-motion`
 under Chromium specifically; a real OS-level preference was not available to
 test in this environment, so whether it fares differently is unconfirmed.
 
-Per the design's own instruction, this is reported rather than acted on: an
-inline `<svg>` is the fallback this finding would motivate, and that trade
-costs the ~1800 animated nodes this delivery mechanism exists to keep out of
-the main document's style tree. Adopting it is the controller's call.
+**Resolved: the editor now delivers an inline `<svg>` only when the reader
+prefers reduced motion, and keeps `<img>` otherwise.** `preview.ts`'s
+`createPreview` watches `matchMedia("(prefers-reduced-motion: reduce)")`,
+including its `change` event so a preference flipped while the page stays
+open takes effect without a reload, and `paint()` branches on
+`reduced.matches`: when true, the rendered SVG is parsed with `DOMParser` and
+swapped into `#stage` as a real element; when false, the existing blob-URL
+`<img>` path runs unchanged.
+
+Re-measured with the technique above, against a config with `CLOSEOPEN` +
+`STARFIELD` + hexatri `ROTATE` + matrix rain: **0.00%** of `#preview`'s pixels
+differ across a one-second capture under reduced motion (now genuinely
+static, both cold-loaded and toggled live), against **4.38%** without it
+(still animating, as the finding above establishes) -- and the delivery
+differs exactly as intended: **3291** nodes land in the main document for the
+inline `<svg>` against **87** for the `<img>`.
+
+The conditional is deliberate, not a half-measure. Inlining unconditionally
+would cost *every* reader the ~1800 animated nodes `docs/mood/README.md`
+measures for `CLOSEOPEN` + `STARFIELD` alone (the fuller config measured just
+above adds matrix rain, hence 3291) -- the same style-tree and memory cost the
+`<img>` delivery in **Preview** exists to avoid. A reduced-motion reader pays
+less than that for the inline path, because nothing in those nodes animates
+for them, so the trade lands only on the readers it is for.
 
 **The module's download size**, which is measured upstream but budgeted here.
 It dominates the payload; ~8 KB of JavaScript and ~4 KB of CSS do not.

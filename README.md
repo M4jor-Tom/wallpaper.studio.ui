@@ -26,10 +26,12 @@ runs inside that shell.
 | **JSON** | the config as text; it round-trips, so pasting a config moves the controls and vice versa |
 
 The JSON is the artifact being produced, which is why it gets a column rather
-than a drawer. Both dividers drag with persisted widths, and the JSON column
-collapses to a labelled rail below 1100px, reopening as an overlay; below
-768px the preview pins to the top with the form and JSON as tabs beneath it,
-so the render stays visible at every width.
+than a drawer. The three columns are a fixed CSS grid -- no draggable
+dividers, no persisted widths. Below 1100px the JSON column drops out of the
+grid and a header button labelled "JSON" reopens it as a full-width row under
+the preview. Below 768px everything collapses into one column with the
+preview pinned to the top (`position: sticky`) so the render stays visible
+while Controls, Export and JSON scroll beneath it -- there are no tabs.
 
 ## The renderer module
 
@@ -53,5 +55,5 @@ Two commands follow from that:
 ```bash
 bun test        # unit tests, after vendoring the module's .d.ts/.js/.wasm
 bun run drift   # src/schema.ts vs the locked revision's bgsvg --descriptor
-bun run build   # tsc --noEmit, then vite build
+bun run build   # vendors the module's .d.ts/.js/.wasm, then tsc --noEmit, then vite build
 ```
