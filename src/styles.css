@@ -5,7 +5,10 @@
   --field: #fbfdfe;
   --rule: #2a424f2b;
   --ink: #2a424f;
-  --dim: #2a424f8c;
+  /* --dim is de-emphasis derived from --ink, not one of the renderer's palette
+     colours. At 0x8c it measured 2.87:1 on --panel; 0xcc clears 4.5:1 against
+     every surface it is used on (--panel, --field and the --page gradient). */
+  --dim: #2a424fcc;
   --accent: #365665;
   --accent-2: #395e53;
   --on-accent: #eef3f6;
@@ -30,7 +33,9 @@
   --field: #22323e;
   --rule: #ffffff1c;
   --ink: #d3e1e9;
-  --dim: #d3e1e994;
+  /* 0x94 cleared 4.5:1 on --panel but only reached 4.42:1 on --field, which is
+     what .seg's labels sit on. 0xa4 clears it on both. */
+  --dim: #d3e1e9a4;
   --accent: #6fb7d1;
   --accent-2: #77c9a6;
   --on-accent: #16212a;
@@ -78,14 +83,31 @@ header button, #export button {
 
 header button:hover, #export button:hover { border-color: var(--accent); }
 
-/* three columns at >=1100px */
+/* three columns at >=1100px.
+
+   Every region is placed by name. #error spans the full width, and under
+   auto-placement a full-span row moves the cursor past every column: #stage
+   and #jsonpane then landed one column to the left of where they belong,
+   leaving a column empty and the preview a thumbnail -- but only while the
+   banner was visible, which is why it survived every screenshot of a working
+   config. Named areas cannot be pushed around by a sibling. */
 #app {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "controls stage json"
+    "export   stage json"
+    "error    error error";
   gap: var(--space);
   padding: var(--space);
   min-height: 100vh;
 }
+
+#controls { grid-area: controls; }
+#export { grid-area: export; }
+#stage { grid-area: stage; }
+#jsonpane { grid-area: json; }
+#error { grid-area: error; }
 
 #controls, #export, #jsonpane {
   background: var(--panel);
@@ -93,10 +115,6 @@ header button:hover, #export button:hover { border-color: var(--accent); }
   border-radius: 8px;
   padding: var(--space);
 }
-
-/* auto-placed into row 1 alongside #controls; #export explicitly stays in
-   column 1 so it stacks under the form instead of stealing #stage's column */
-#export { grid-column: 1; }
 
 #stage { display: grid; place-items: center; min-width: 0; }
 #preview { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: var(--art-shadow); }
@@ -116,6 +134,9 @@ input[type="number"], input[type="color"], input[type="text"], select, textarea 
   border-radius: 5px;
   padding: 6px 8px;
   font-family: ui-monospace, monospace;
+  /* the same floor buttons and .seg labels already carry; a padded text input
+     lands at about 34px on its own */
+  min-height: 44px;
 }
 
 textarea { min-height: 320px; resize: vertical; white-space: pre; }
@@ -151,13 +172,18 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
    its label -- the same one-rule-per-row rhythm as .seg's legend-over-track */
 .row { margin: 0 0 var(--space); }
 .row label { display: block; }
-.row:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+.row:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+/* A native checkbox is 13x13 and ignores padding under appearance:auto, so the
+   target has to come from sizing the control itself. Its label is a second
+   target of the same height beside it. The spec's 44x44 floor is the >=768px
+   rule; below that width it is the media query further down that applies it. */
+.row input[type="checkbox"] { width: 24px; height: 24px; margin: 0; flex: none; }
 .row output { display: block; margin-top: 4px; font: 12px/1.4 ui-monospace, monospace; color: var(--dim); }
-.export-buttons { display: flex; gap: 8px; margin-bottom: 0; }
-.export-buttons button { flex: 1; }
+/* three buttons do not fit across a 260px column; the third takes its own row */
+.export-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
+#copy-json { grid-column: 1 / -1; }
 
 #error {
-  grid-column: 1 / -1;
   margin: 0;
   padding: 10px 12px;
   border-radius: 6px;
@@ -165,23 +191,41 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
   border: 1px solid var(--accent-2);
   color: var(--ink);
   font-family: ui-monospace, monospace;
+  /* errorText() quotes the offending line and puts a caret under the column;
+     both only mean anything if the newlines and the spaces survive */
+  white-space: pre-wrap;
 }
 #error[hidden] { display: none; }
 
+/* Above the breakpoint below, #jsonpane is always on screen and this button
+   toggles a dormant rule. Leaving it there told assistive tech, through its
+   aria-expanded, that the pane was collapsed while it was in plain view. */
+#json-toggle { display: none; }
+
 /* the JSON column collapses first; the preview keeps its width longest */
 @media (max-width: 1100px) {
-  #app { grid-template-columns: 260px minmax(0, 1fr); }
-  #jsonpane { display: none; }
-  #app[data-json="open"] #jsonpane {
-    display: block;
-    grid-column: 1 / -1;
+  #json-toggle { display: inline-block; }
+  #app {
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-areas:
+      "controls stage"
+      "export   stage"
+      "error    error"
+      "json     json";
   }
+  #jsonpane { display: none; }
+  #app[data-json="open"] #jsonpane { display: block; }
 }
 
 /* below 768px the preview pins to the top so the render is always visible */
 @media (max-width: 768px) {
-  #app { grid-template-columns: 1fr; }
-  #stage { order: -1; position: sticky; top: 0; padding: 8px 0; background: var(--page); }
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-areas: "stage" "controls" "export" "error" "json";
+  }
+  #stage { position: sticky; top: 0; padding: 8px 0; background: var(--page); }
+  /* the touch layout: nothing here is smaller than 44x44 */
+  .row input[type="checkbox"] { width: 44px; height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
