@@ -46,6 +46,19 @@ function numOf(v: unknown, def: number): number {
   return typeof v === "number" ? v : def;
 }
 
+/**
+ * Which branch of a oneof the config holds -- or, when it holds none, the
+ * schema default, because that is what the renderer applies to an absent key.
+ * The control and visible() must answer this the same question: `{}` renders
+ * the hexatri radio checked, and anything that asked "is icon.hexatri present"
+ * instead would hide the icon fields under a branch the user can see selected.
+ */
+function chosen(f: Field & { kind: "choice" }): string {
+  return f.branches.find((b) => getPath(cfg, `${f.path}.${b}`) !== undefined) ?? f.def;
+}
+
+const ICON = FIELDS.find((f) => f.path === "icon") as Extract<Field, { kind: "choice" }>;
+
 function radios(f: Field & { kind: "enum" | "choice" }, current: string): string {
   const values = f.kind === "enum" ? f.values : f.branches;
   const opts = values
@@ -73,10 +86,8 @@ function control(f: Field): string {
     }
     case "enum":
       return radios(f, strOf(getPath(cfg, f.path), f.def));
-    case "choice": {
-      const present = f.branches.find((b) => getPath(cfg, `${f.path}.${b}`) !== undefined);
-      return radios(f, present ?? f.def);
-    }
+    case "choice":
+      return radios(f, chosen(f));
     case "toggle": {
       const on = getPath(cfg, f.path) !== undefined;
       return `<div class="row" data-field="${esc(f.path)}">
@@ -105,7 +116,7 @@ function control(f: Field): string {
  * motion means nothing on a ship, and a rain angle means nothing with no rain.
  */
 function visible(f: Field): boolean {
-  if (f.path.startsWith("icon.hexatri")) return getPath(cfg, "icon.hexatri") !== undefined;
+  if (f.path.startsWith("icon.hexatri")) return chosen(ICON) === "hexatri";
   if (f.path.startsWith("overlay.matrix.")) return getPath(cfg, "overlay.matrix") !== undefined;
   return true;
 }
@@ -138,7 +149,12 @@ export function buildForm(
 
     switch (kind) {
       case "number":
-        setPath(cfg, path, el.valueAsNumber);
+        // An emptied number input reports valueAsNumber NaN and still fires
+        // `input`. Storing it serialises as `null`, which the module rejects --
+        // and numOf would then read the schema default back out, so the form
+        // would show 0 while cfg held null. Absent is what "no value" means.
+        if (Number.isNaN(el.valueAsNumber)) clearPath(cfg, path);
+        else setPath(cfg, path, el.valueAsNumber);
         break;
       case "enum":
         setPath(cfg, path, el.value);
