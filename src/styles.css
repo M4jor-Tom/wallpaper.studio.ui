@@ -142,7 +142,18 @@ input[type="number"], input[type="color"], input[type="text"], select, textarea 
 textarea { min-height: 320px; resize: vertical; white-space: pre; }
 
 .seg { border: 0; margin: 0 0 var(--space); padding: 0; }
-.seg-track { display: flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+/* position: relative is not decoration -- the radios below are absolutely
+   positioned, and without a containing block here they escape to the nearest
+   positioned ancestor and pile up somewhere unrelated. They are invisible, so
+   nothing looks wrong; what goes wrong is a stray 1px click target away from
+   its control, and focusing a radio scrolling the wrong thing into view. */
+.seg-track {
+  position: relative;
+  display: flex;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  overflow: hidden;
+}
 .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .seg label {
   flex: 1;
