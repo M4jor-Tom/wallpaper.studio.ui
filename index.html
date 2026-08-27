@@ -8,37 +8,31 @@
     <title>bgsvg studio</title>
   </head>
   <body>
-    <header>
-      <h1>bgsvg studio</h1>
-      <div class="actions">
-        <button id="json-toggle" type="button" aria-controls="jsonpane" aria-expanded="false">JSON</button>
+    <div id="stage"><img id="preview" alt="" /></div>
+    <div id="dock">
+      <header>
+        <h1>bgsvg studio</h1>
         <button id="theme-toggle" type="button"></button>
-      </div>
-    </header>
-    <main id="app">
-      <section id="controls" aria-label="Configuration"></section>
-      <section id="export" aria-label="Export">
-        <div class="row">
-          <label for="res">Resolution</label>
-          <select id="res"></select>
-        </div>
-        <div class="row">
-          <label for="res-custom">Custom size</label>
-          <input type="text" id="res-custom" placeholder="WIDTHxHEIGHT" autocomplete="off" />
-        </div>
-        <div class="row export-buttons">
-          <button id="dl-svg" type="button">Download SVG</button>
-          <button id="dl-json" type="button">Download JSON</button>
-          <button id="copy-json" type="button" aria-live="polite">Copy JSON</button>
-        </div>
-      </section>
-      <p id="error" role="alert" hidden></p>
-      <section id="stage"><img id="preview" alt="" /></section>
-      <section id="jsonpane">
-        <label for="json">Config JSON</label>
-        <textarea id="json" spellcheck="false" autocomplete="off"></textarea>
-      </section>
-    </main>
+      </header>
+      <main>
+        <p id="error" role="alert" hidden></p>
+        <section id="controls" aria-label="Configuration"></section>
+        <section id="export" aria-label="Export">
+          <div class="row">
+            <label for="res">Resolution</label>
+            <select id="res"></select>
+          </div>
+          <div class="row">
+            <label for="res-custom">Custom size</label>
+            <input type="text" id="res-custom" placeholder="WIDTHxHEIGHT" autocomplete="off" />
+          </div>
+          <div class="row export-buttons">
+            <button id="dl-svg" type="button">Download SVG</button>
+            <button id="copy-json" type="button" aria-live="polite">Copy JSON</button>
+          </div>
+        </section>
+      </main>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -55,7 +55,6 @@ export function initExport(
   select: HTMLSelectElement,
   custom: HTMLInputElement,
   svgBtn: HTMLButtonElement,
-  jsonBtn: HTMLButtonElement,
   copyBtn: HTMLButtonElement,
   cfg: Cfg,
   onSize: (w: number, h: number) => void,
@@ -106,10 +105,6 @@ export function initExport(
       return;
     }
     download(`trihex-${slug(cfg)}-${s.width}x${s.height}.svg`, svg, "image/svg+xml");
-  });
-
-  jsonBtn.addEventListener("click", () => {
-    download(`${slug(cfg)}.json`, JSON.stringify(cfg, null, 2), "application/json");
   });
 
   copyBtn.addEventListener("click", () => {

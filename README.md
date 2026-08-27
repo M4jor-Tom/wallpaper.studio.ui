@@ -56,21 +56,24 @@ by the drift check below. Everything else -- `bun run dev`, `bun test`,
 `BGSVG_WASM` from the same locked revision, so none of them can render through
 a different module.
 
-## The three columns
+## The two layers
 
-| column | holds |
+| layer | holds |
 |---|---|
-| **controls** | one hand-written widget per config field -- a stepper for the seed, a segmented control per enum, a picker for colour |
-| **preview** | the rendered SVG, scaled to fit its pane at the selected output's aspect ratio |
-| **JSON** | the config as text; it round-trips, so pasting a config moves the controls and vice versa |
+| **stage** | the rendered SVG, fixed to the window and cropped to it, at the selected output's aspect ratio |
+| **dock** | one hand-written widget per config field -- a stepper for the seed, a segmented control per enum, a picker for colour -- plus the export controls, floating on the render |
 
-The JSON is the artifact being produced, which is why it gets a column rather
-than a drawer. The three columns are a fixed CSS grid -- no draggable
-dividers, no persisted widths. Below 1100px the JSON column drops out of the
-grid and a header button labelled "JSON" reopens it as a full-width row under
-the preview. Below 768px everything collapses into one column with the
-preview pinned to the top (`position: sticky`) so the render stays visible
-while Controls, Export and JSON scroll beneath it -- there are no tabs.
+A wallpaper is judged full-bleed, so the render is the page rather than a
+picture on it: giving it a column could only letterbox it, since the window's
+aspect ratio is not the output's. The dock is one translucent card over the
+top-left of it -- `--glass` is `--panel` at 86%, which is as transparent as it
+can be and still hold its labels at 4.5:1 over a render of any colour. It is
+`min(320px, 100%)` wide and scrolls inside itself, so the render stays whole at
+every window size and there are no tabs, no draggable dividers, no
+breakpoints of its own.
+
+The config never appears as text: it leaves through **Copy JSON**, and comes
+back only through the controls.
 
 ## The renderer module
 

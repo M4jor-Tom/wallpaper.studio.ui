@@ -1,7 +1,7 @@
 import { defaults } from "./cfg.ts";
 import { initExport, slug } from "./export.ts";
 import { buildForm } from "./form.ts";
-import { createJsonPane, errorText } from "./json.ts";
+import { errorText } from "./json.ts";
 import { createPreview } from "./preview.ts";
 import { initTheme } from "./theme.ts";
 import { ready } from "./wasm.ts";
@@ -10,33 +10,21 @@ import type { RenderError } from "./wasm.ts";
 const img = document.querySelector<HTMLImageElement>("#preview")!;
 const banner = document.querySelector<HTMLParagraphElement>("#error")!;
 const controls = document.querySelector<HTMLElement>("#controls")!;
-const app = document.querySelector<HTMLElement>("#app")!;
-const jsonToggle = document.querySelector<HTMLButtonElement>("#json-toggle")!;
 const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
 const resSelect = document.querySelector<HTMLSelectElement>("#res")!;
 const resCustom = document.querySelector<HTMLInputElement>("#res-custom")!;
 const dlSvg = document.querySelector<HTMLButtonElement>("#dl-svg")!;
-const dlJson = document.querySelector<HTMLButtonElement>("#dl-json")!;
 const copyJson = document.querySelector<HTMLButtonElement>("#copy-json")!;
 const cfg = defaults();
 
 function showError(e: RenderError | null): void {
   banner.hidden = e === null;
-  // The module is handed JSON.stringify(cfg), so that -- not the pane's
-  // indented copy -- is the text its line/column point into.
+  // The module is handed JSON.stringify(cfg), so that is the text its
+  // line/column point into.
   banner.textContent = e ? errorText(e, JSON.stringify(cfg)) : "";
 }
 
 initTheme(themeToggle);
-
-// Below 1100px #jsonpane is display:none; this is the only thing that
-// reopens it. Above that width the CSS rule it toggles is dormant, so
-// clicking it there is a harmless no-op.
-jsonToggle.addEventListener("click", () => {
-  const open = app.dataset.json === "open";
-  app.dataset.json = open ? "" : "open";
-  jsonToggle.setAttribute("aria-expanded", String(!open));
-});
 
 try {
   await ready();
@@ -62,27 +50,6 @@ function redraw(immediate: boolean): void {
   preview.draw(cfg, immediate);
 }
 
-/**
- * The form and the JSON pane both write into `cfg` and must tell each other:
- * a control edit re-serialises the text (pane.sync in the onChange below),
- * and text that parses re-renders the form (this function, called from the
- * pane's onEdit) so pasting a config moves the controls.
- */
-function rebuild(): void {
-  buildForm(controls, cfg, (immediate) => {
-    pane.sync();
-    redraw(immediate);
-  });
-}
-
-const pane = createJsonPane(document.querySelector<HTMLTextAreaElement>("#json")!, cfg, (e) => {
-  showError(e);
-  if (e === null) {
-    rebuild();
-    redraw(false);
-  }
-});
-
 // The resolution error and the render error share one banner: both are
 // "why the preview isn't what you typed", and a second alert region would
 // just be two places to look during a paste that fails for either reason.
@@ -93,7 +60,6 @@ initExport(
   resSelect,
   resCustom,
   dlSvg,
-  dlJson,
   copyJson,
   cfg,
   (w, h) => {
@@ -107,6 +73,5 @@ initExport(
   },
 );
 
-rebuild();
-pane.sync();
+buildForm(controls, cfg, redraw);
 redraw(true);

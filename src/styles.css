@@ -1,18 +1,24 @@
 :root {
   color-scheme: light;
   --page: linear-gradient(135deg, #eef3f6, #dde6ec);
-  --panel: #f3f7f9;
+  /* The dock floats on the wallpaper, so its surface carries an alpha.
+     0xdb (86%) is as transparent as it can be and still hold text: the render
+     behind it is any colour the config asks for, so the surface is measured
+     over black here and over white in the dark theme, not over --page. */
+  --glass: #f3f7f9db;
   --field: #fbfdfe;
   --rule: #2a424f2b;
   --ink: #2a424f;
   /* --dim is de-emphasis derived from --ink, not one of the renderer's palette
-     colours. At 0x8c it measured 2.87:1 on --panel; 0xcc clears 4.5:1 against
-     every surface it is used on (--panel, --field and the --page gradient). */
-  --dim: #2a424fcc;
+     colours. At 0x8c it measured 2.87:1 on the old opaque panel. --glass is the
+     binding surface now and a harsher one: over black it composites down to
+     ~#d1d4d6, where 0xcc reaches only 4.48:1. 0xd9 clears 4.5:1 there and on
+     --field, and still reads a step quieter than --ink. */
+  --dim: #2a424fd9;
   --accent: #365665;
   --accent-2: #395e53;
   --on-accent: #eef3f6;
-  --art-shadow: 0 0 0 1px #2a424f26;
+  --lift: 0 10px 30px #2a424f24, 0 0 0 1px #2a424f14;
   --space: 16px;
 }
 
@@ -29,17 +35,18 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #16212a;
-  --panel: #1a2731;
+  --glass: #1a2731db;
   --field: #22323e;
   --rule: #ffffff1c;
   --ink: #d3e1e9;
-  /* 0x94 cleared 4.5:1 on --panel but only reached 4.42:1 on --field, which is
-     what .seg's labels sit on. 0xa4 clears it on both. */
-  --dim: #d3e1e9a4;
+  /* 0x94 cleared 4.5:1 on the opaque panel but only reached 4.42:1 on --field,
+     which is what .seg's labels sit on. --glass over a white render lightens to
+     ~#3a454e, where even 0xa4 falls to 3.6:1; 0xd9 measures 5.8:1 there. */
+  --dim: #d3e1e9d9;
   --accent: #6fb7d1;
   --accent-2: #77c9a6;
   --on-accent: #16212a;
-  --art-shadow: 0 12px 30px #0007, 0 0 0 1px #ffffff14;
+  --lift: 0 12px 30px #0007, 0 0 0 1px #ffffff14;
 }
 
 * { box-sizing: border-box; }
@@ -47,6 +54,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  padding: var(--space);
   background: var(--page);
   color: var(--ink);
   font: 400 14px/1.5 ui-sans-serif, system-ui, sans-serif;
@@ -57,7 +65,6 @@ header {
   align-items: center;
   justify-content: space-between;
   gap: var(--space);
-  padding: var(--space);
 }
 
 header h1 {
@@ -83,41 +90,57 @@ header button, #export button {
 
 header button:hover, #export button:hover { border-color: var(--accent); }
 
-/* three columns at >=1100px.
+/* The render is the page, not a picture on it: a fixed layer the size of the
+   window, with the controls floating over it. A column that reserved room for
+   the render could only ever letterbox it -- the window's aspect ratio is not
+   the output's, so fitting one inside the other left a band above and below. */
+#stage {
+  position: fixed;
+  inset: 0;
+}
 
-   Every region is placed by name. #error spans the full width, and under
-   auto-placement a full-span row moves the cursor past every column: #stage
-   and #jsonpane then landed one column to the left of where they belong,
-   leaving a column empty and the preview a thumbnail -- but only while the
-   banner was visible, which is why it survived every screenshot of a working
-   config. Named areas cannot be pushed around by a sibling. */
-#app {
+/* object-fit crops the <img> branch to the window; the inline branch is an
+   <svg> element, which object-fit does not reach -- it covers on its own, from
+   the preserveAspectRatio="xMidYMid slice" the renderer already emits. Both
+   mean the same thing: fill the window, crop the overhang, never letterbox.
+   Sizing in CSS rather than in the render is what makes a resize free -- the
+   SVG is vector, so this rescales it with nothing to redraw.
+
+   Absolute, so the percentages resolve against #stage's fixed box. In flow
+   they resolve against a content-sized parent, which is circular for a
+   replaced element: height fell back to the render's own 1080 and hung 360px
+   below an 8:3 window. */
+#preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The controls, directly on the render. Both layers are positioned, so this is
+   above #stage by document order alone -- no z-index to keep in step. */
+#dock {
+  position: relative;
+  width: min(320px, 100%);
+  /* the window is the render; the dock scrolls inside itself rather than
+     scrolling the page off it */
+  max-height: calc(100vh - 2 * var(--space));
+  overflow-y: auto;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 320px;
-  grid-template-areas:
-    "controls stage json"
-    "export   stage json"
-    "error    error error";
   gap: var(--space);
   padding: var(--space);
-  min-height: 100vh;
-}
-
-#controls { grid-area: controls; }
-#export { grid-area: export; }
-#stage { grid-area: stage; }
-#jsonpane { grid-area: json; }
-#error { grid-area: error; }
-
-#controls, #export, #jsonpane {
-  background: var(--panel);
+  background: var(--glass);
+  backdrop-filter: blur(16px) saturate(1.2);
   border: 1px solid var(--rule);
-  border-radius: 8px;
-  padding: var(--space);
+  border-radius: 12px;
+  box-shadow: var(--lift);
 }
 
-#stage { display: grid; place-items: center; min-width: 0; }
-#preview { max-width: 100%; max-height: 100%; border-radius: 4px; box-shadow: var(--art-shadow); }
+main { display: grid; gap: var(--space); }
+
+/* one card, two groups: the hairline is what a second card's edge used to say */
+#export { border-top: 1px solid var(--rule); padding-top: var(--space); }
 
 label, legend {
   font: 600 10px/1.4 ui-monospace, monospace;
@@ -126,7 +149,7 @@ label, legend {
   color: var(--dim);
 }
 
-input[type="number"], input[type="color"], input[type="text"], select, textarea {
+input[type="number"], input[type="color"], input[type="text"], select {
   width: 100%;
   background: var(--field);
   color: var(--ink);
@@ -138,8 +161,6 @@ input[type="number"], input[type="color"], input[type="text"], select, textarea 
      lands at about 34px on its own */
   min-height: 44px;
 }
-
-textarea { min-height: 320px; resize: vertical; white-space: pre; }
 
 .seg { border: 0; margin: 0 0 var(--space); padding: 0; }
 /* position: relative is not decoration -- the radios below are absolutely
@@ -190,11 +211,21 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
    rule; below that width it is the media query further down that applies it. */
 .row input[type="checkbox"] { width: 24px; height: 24px; margin: 0; flex: none; }
 .row output { display: block; margin-top: 4px; font: 12px/1.4 ui-monospace, monospace; color: var(--dim); }
-/* three buttons do not fit across a 260px column; the third takes its own row */
+/* three buttons do not fit across the dock's width; the third takes its own row */
 .export-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
 #copy-json { grid-column: 1 / -1; }
 
+/* The dock scrolls inside itself, and this used to be a full-width row of the
+   page grid that could not be missed. At the end of a scrollable card it sat
+   below the fold -- a role="alert" nobody sees. It leads the card instead, and
+   sticks to the top of the scrollport once the card is scrolled.
+   Top, not bottom: both error sources are the resolution field, at the far end
+   of the card, and an alert pinned to the bottom covered the very field being
+   typed into. Its background is opaque, so controls pass behind it. */
 #error {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   margin: 0;
   padding: 10px 12px;
   border-radius: 6px;
@@ -208,34 +239,10 @@ textarea { min-height: 320px; resize: vertical; white-space: pre; }
 }
 #error[hidden] { display: none; }
 
-/* Above the breakpoint below, #jsonpane is always on screen and this button
-   toggles a dormant rule. Leaving it there told assistive tech, through its
-   aria-expanded, that the pane was collapsed while it was in plain view. */
-#json-toggle { display: none; }
-
-/* the JSON column collapses first; the preview keeps its width longest */
-@media (max-width: 1100px) {
-  #json-toggle { display: inline-block; }
-  #app {
-    grid-template-columns: 260px minmax(0, 1fr);
-    grid-template-areas:
-      "controls stage"
-      "export   stage"
-      "error    error"
-      "json     json";
-  }
-  #jsonpane { display: none; }
-  #app[data-json="open"] #jsonpane { display: block; }
-}
-
-/* below 768px the preview pins to the top so the render is always visible */
+/* the touch layout: nothing here is smaller than 44x44. The dock needs no
+   breakpoint of its own -- min(320px, 100%) already narrows it to the window,
+   and the render behind it is the window at every width. */
 @media (max-width: 768px) {
-  #app {
-    grid-template-columns: 1fr;
-    grid-template-areas: "stage" "controls" "export" "error" "json";
-  }
-  #stage { position: sticky; top: 0; padding: 8px 0; background: var(--page); }
-  /* the touch layout: nothing here is smaller than 44x44 */
   .row input[type="checkbox"] { width: 44px; height: 44px; }
 }
 
