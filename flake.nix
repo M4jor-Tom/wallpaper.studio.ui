@@ -1,5 +1,5 @@
 {
-  description = "svg.studio.ui — browser editor for bgsvg configs (toolchain, plus the renderer it consumes)";
+  description = "wallpaper.studio.ui — browser editor for bgsvg configs (toolchain, plus the renderer it consumes)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -14,11 +14,13 @@
     # not name.
     #
     # Changes upstream reach this repository only once pushed; adopt them with
-    #   nix flake update svg_builder
+    #   nix flake update wallpaper-studio-svg
     # For co-development against a local working tree, without touching the lock:
-    #   nix develop --override-input svg_builder path:../svg_builder
-    svg_builder.url = "git+ssh://git@github.com/M4jor-Tom/theta_svg_builder.py.git";
-    svg_builder.inputs.nixpkgs.follows = "nixpkgs";
+    #   nix develop --override-input wallpaper-studio-svg path:../wallpaper.studio.svg
+    # Hyphens, not the repository's own dots: nix rejects a dotted input name
+    # in --override-input.
+    wallpaper-studio-svg.url = "git+ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git";
+    wallpaper-studio-svg.inputs.nixpkgs.follows = "nixpkgs";
 
     # node_modules inside the sandbox, out of bun.lock alone -- packages.site
     # needs it, because vite and tsc *are* the build. It reads bun.nix, a
@@ -35,7 +37,7 @@
     bun2nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, svg_builder, bun2nix }:
+  outputs = { self, nixpkgs, wallpaper-studio-svg, bun2nix }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
@@ -100,7 +102,7 @@
           # as a hashed asset beside the bundle, so what lands in $out is
           # self-contained: BGSVG_WASM is a build-time input and nothing more.
           site = pkgs.stdenv.mkDerivation {
-            name = "svg-studio-ui-site";
+            name = "wallpaper-studio-ui-site";
 
             # only what `bun run build` reads. node_modules/, dist/ and vendor/
             # are working-tree artefacts; letting them in would put the input
@@ -124,7 +126,7 @@
 
             # the same locked revision the devShell and the dev app export, so
             # no path can render through a module the lock does not name
-            BGSVG_WASM = svg_builder.packages.${system}.bgsvg-wasm;
+            BGSVG_WASM = wallpaper-studio-svg.packages.${system}.bgsvg-wasm;
 
             # These displace the hook's own build and install, which compile a
             # bun executable. `build` is types + tsc --noEmit + vite build,
@@ -144,7 +146,7 @@
 
           default =
             let
-              name = "svg-studio-ui";
+              name = "wallpaper-studio-ui";
               # not 5173: an installed editor and a dev server should be able
               # to run at the same time
               port = "5174";
@@ -171,7 +173,7 @@
           # lives in the store. So this is the README's three commands in one.
           devServer =
             let
-              name = "svg-studio-ui-dev";
+              name = "wallpaper-studio-ui-dev";
               port = "5173";
             in
             pkgs.writeShellApplication {
@@ -179,12 +181,12 @@
               runtimeInputs = [ pkgs.bun ];
               text = ''
                 if [ ! -f package.json ] || [ ! -f vite.config.ts ]; then
-                  echo "${name}: run this from the svg.studio.ui checkout" >&2
+                  echo "${name}: run this from the wallpaper.studio.ui checkout" >&2
                   exit 1
                 fi
                 # the same locked revision the devShell exports, so `nix run .#dev`
                 # and `nix develop` can never render through different modules
-                export BGSVG_WASM="${svg_builder.packages.${system}.bgsvg-wasm}"
+                export BGSVG_WASM="${wallpaper-studio-svg.packages.${system}.bgsvg-wasm}"
                 [ -d node_modules ] || bun install
                 bun run types
                 ${windowed pkgs {
@@ -195,11 +197,11 @@
             };
         in
         rec {
-          svg-studio-ui = {
+          wallpaper-studio-ui = {
             type = "app";
             program = nixpkgs.lib.getExe self.packages.${system}.default;
           };
-          default = svg-studio-ui;
+          default = wallpaper-studio-ui;
           dev = {
             type = "app";
             program = nixpkgs.lib.getExe devServer;
@@ -243,12 +245,12 @@
           packages = [
             pkgs.bun
             bun2nix.packages.${pkgs.stdenv.hostPlatform.system}.default
-            svg_builder.packages.${pkgs.stdenv.hostPlatform.system}.default
+            wallpaper-studio-svg.packages.${pkgs.stdenv.hostPlatform.system}.default
           ];
 
           # the browser-callable module, from the same locked revision as the
           # bgsvg binary above -- vite.config.ts resolves the @bgsvg alias to it
-          BGSVG_WASM = svg_builder.packages.${pkgs.stdenv.hostPlatform.system}.bgsvg-wasm;
+          BGSVG_WASM = wallpaper-studio-svg.packages.${pkgs.stdenv.hostPlatform.system}.bgsvg-wasm;
         };
       });
     };

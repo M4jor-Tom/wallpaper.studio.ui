@@ -64,27 +64,7 @@
       "inputs": {
         "bun2nix": "bun2nix",
         "nixpkgs": "nixpkgs",
-        "svg_builder": "svg_builder"
-      }
-    },
-    "svg_builder": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1787341239,
-        "narHash": "sha256-jGI8EABfhX9sGEUf2iJt1aQa9RPIfQtXHjbr87+7kR4=",
-        "ref": "refs/heads/master",
-        "rev": "6daeb1fa261d4dd994330ac06cb8bb457b63de42",
-        "revCount": 69,
-        "type": "git",
-        "url": "ssh://git@github.com/M4jor-Tom/theta_svg_builder.py.git"
-      },
-      "original": {
-        "type": "git",
-        "url": "ssh://git@github.com/M4jor-Tom/theta_svg_builder.py.git"
+        "wallpaper-studio-svg": "wallpaper-studio-svg"
       }
     },
     "systems": {
@@ -121,6 +101,26 @@
         "owner": "numtide",
         "repo": "treefmt-nix",
         "type": "github"
+      }
+    },
+    "wallpaper-studio-svg": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1787341239,
+        "narHash": "sha256-jGI8EABfhX9sGEUf2iJt1aQa9RPIfQtXHjbr87+7kR4=",
+        "ref": "refs/heads/master",
+        "rev": "6daeb1fa261d4dd994330ac06cb8bb457b63de42",
+        "revCount": 69,
+        "type": "git",
+        "url": "ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git"
       }
     }
   },

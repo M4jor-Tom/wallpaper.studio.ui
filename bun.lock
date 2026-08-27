@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "svg-studio-ui",
+      "name": "wallpaper-studio-ui",
       "devDependencies": {
         "@types/bun": "^1.4.0",
         "typescript": "^5.6.0",

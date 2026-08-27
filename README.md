@@ -74,20 +74,22 @@ while Controls, Export and JSON scroll beneath it -- there are no tabs.
 
 ## The renderer module
 
-Rendering comes from a WASM build of `bgsvg`, produced by the `svg_builder`
-repository. `flake.nix` declares it as a flake input, so `flake.lock` pins
+Rendering comes from a WASM build of `bgsvg`, produced by the
+`wallpaper.studio.svg` repository. `flake.nix` declares it as a flake input
+called `wallpaper-studio-svg`, so `flake.lock` pins
 one exact revision -- the `.wasm`, its generated `.d.ts`, and the
 `bgsvg --descriptor` output the drift check compares against all come from
 that single revision, which is what makes the drift check meaningful.
 
 Two commands follow from that:
 
-- **`nix flake update svg_builder`** adopts a newer revision as a deliberate
-  act, once it has been pushed upstream, and records which one in the
-  lockfile.
-- **`nix develop --override-input svg_builder path:../svg_builder`** builds
-  against a local `svg_builder` working tree for co-development across both
-  repositories, without touching the lock or requiring a commit there.
+- **`nix flake update wallpaper-studio-svg`** adopts a newer revision as a
+  deliberate act, once it has been pushed upstream, and records which one in
+  the lockfile.
+- **`nix develop --override-input wallpaper-studio-svg path:../wallpaper.studio.svg`**
+  builds against a local `wallpaper.studio.svg` working tree for
+  co-development across both repositories, without touching the lock or
+  requiring a commit there.
 
 ## Checks
 
