@@ -55,7 +55,7 @@
       # which the readiness probe could never reach.
       windowed =
         pkgs:
-        { name, port, serve }:
+        { name, port, serve, query ? "" }:
         if pkgs.stdenv.hostPlatform.isLinux then
           ''
             if (exec 3<>/dev/tcp/127.0.0.1/${port}) 2>/dev/null; then
@@ -71,7 +71,7 @@
                 { echo "${name}: server exited before it was listening" >&2; exit 1; }
               sleep 0.1
             done
-            ${pkgs.surf}/bin/surf http://127.0.0.1:${port}/ &
+            ${pkgs.surf}/bin/surf 'http://127.0.0.1:${port}/${query}' &
             window=$!
             # backgrounded so the shell waits in `wait`, where it still runs
             # traps: a foreground child defers them until it exits, which is
@@ -82,7 +82,7 @@
         else
           ''
             # no window here: surf is X11/GTK, and nothing else is light
-            echo "${name}: http://127.0.0.1:${port}/"
+            echo "${name}: http://127.0.0.1:${port}/${query}"
             exec ${serve}
           '';
     in
@@ -158,6 +158,19 @@
                 inherit name port;
                 # --no-listing: assets/ is an implementation detail
                 serve = "darkhttpd ${site} --addr 127.0.0.1 --port ${port} --no-listing";
+
+                # The store name of the site, which changes exactly when its
+                # contents do -- so it is the cache key this URL should always
+                # have carried. It has to be the URL, because no response header
+                # can reach this: every file in the store shares one mtime, nix
+                # normalises it to the epoch, and WebKit turns that 1970
+                # Last-Modified into a heuristic freshness lifetime of decades.
+                # It then serves the entry without asking the server at all, so
+                # a Cache-Control saying otherwise is never read -- the response
+                # carrying it is never fetched, and the window stays pinned to
+                # whichever build it first saw. Only the document needs the key;
+                # vite content-hashes every asset it emits.
+                query = "?${builtins.baseNameOf site}";
               };
             };
         }
