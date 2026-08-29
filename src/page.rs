@@ -220,9 +220,32 @@ mod tests {
             "<option value=\"1080p\" selected>",
             "<svg id=\"x\"/>",
             "id=\"error\" role=\"alert\" hidden",
+            "data-theme-name=\"light\"",
+            "data-theme-name=\"dark\"",
+            "data-field=\"icon.hexatri.motion\"",
+            "data-field=\"overlay.matrix.angle\"",
         ] {
             assert!(html.contains(needle), "missing {needle}\n{html}");
         }
+    }
+
+    #[test]
+    fn no_theme_cookie_omits_the_attribute_entirely() {
+        let html = Page {
+            theme: "",
+            controls: controls(None),
+            resolutions: &bgsvg::params::RESOLUTIONS,
+            res: "1080p".into(),
+            res_custom: String::new(),
+            error: String::new(),
+            svg: String::new(),
+        }
+        .render()
+        .expect("the page template renders");
+        assert!(html.contains("<html lang=\"en\">"), "{html}");
+        // not `contains("data-theme")`: that also matches the unrelated
+        // `data-theme-name` spans on the theme-toggle button
+        assert!(!html.contains("data-theme=\""), "{html}");
     }
 
     #[test]
