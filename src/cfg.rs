@@ -109,7 +109,10 @@ mod tests {
     use serde_json::json;
 
     fn form(pairs: &[(&str, &str)]) -> Form {
-        pairs.iter().map(|(k, v)| ((*k).to_string(), (*v).to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect()
     }
 
     /// What the browser posts once every control has been rendered and none
@@ -156,7 +159,10 @@ mod tests {
         let mut f = defaults();
         f.retain(|(k, _)| k != "seed");
         f.push(("seed".into(), "".into()));
-        assert!(build(&f).get("seed").is_none(), "an emptied field means absent, not null");
+        assert!(
+            build(&f).get("seed").is_none(),
+            "an emptied field means absent, not null"
+        );
     }
 
     #[test]
@@ -196,7 +202,10 @@ mod tests {
 
     #[test]
     fn visible_hides_hexatri_fields_when_ship_is_chosen() {
-        let motion = FIELDS.iter().find(|f| f.path() == "icon.hexatri.motion").unwrap();
+        let motion = FIELDS
+            .iter()
+            .find(|f| f.path() == "icon.hexatri.motion")
+            .unwrap();
         assert!(visible(motion, &defaults()));
         assert!(!visible(motion, &form(&[("icon", "ship")])));
         // an absent `icon` means the default branch, which is hexatri -- the
@@ -206,8 +215,14 @@ mod tests {
 
     #[test]
     fn visible_hides_rain_fields_when_the_toggle_is_off() {
-        let angle = FIELDS.iter().find(|f| f.path() == "overlay.matrix.angle").unwrap();
-        let toggle = FIELDS.iter().find(|f| f.path() == "overlay.matrix").unwrap();
+        let angle = FIELDS
+            .iter()
+            .find(|f| f.path() == "overlay.matrix.angle")
+            .unwrap();
+        let toggle = FIELDS
+            .iter()
+            .find(|f| f.path() == "overlay.matrix")
+            .unwrap();
         assert!(!visible(angle, &form(&[])));
         assert!(visible(angle, &form(&[("overlay.matrix", "on")])));
         // the toggle itself is never hidden by its own state
@@ -218,7 +233,11 @@ mod tests {
     /// the mapping is wrong in a way no assertion above would catch.
     #[test]
     fn every_config_build_produces_renders() {
-        for extra in [vec![], vec![("overlay.matrix", "on")], vec![("icon", "ship")]] {
+        for extra in [
+            vec![],
+            vec![("overlay.matrix", "on")],
+            vec![("icon", "ship")],
+        ] {
             let mut f = defaults();
             for (k, v) in &extra {
                 f.retain(|(key, _)| key != k);

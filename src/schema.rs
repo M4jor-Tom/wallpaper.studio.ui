@@ -52,7 +52,14 @@ impl Field {
 }
 
 pub static FIELDS: &[Field] = &[
-    Field::Number { path: "seed", label: "Seed", min: 0, max: 4294967295, step: 1, def: 0 },
+    Field::Number {
+        path: "seed",
+        label: "Seed",
+        min: 0,
+        max: 4294967295,
+        step: 1,
+        def: 0,
+    },
     Field::Enum {
         path: "background.motion",
         label: "Background motion",
@@ -77,7 +84,11 @@ pub static FIELDS: &[Field] = &[
         values: &["ROTATE", "STATIC"],
         def: "ROTATE",
     },
-    Field::Toggle { path: "overlay.matrix", label: "Matrix rain", def: false },
+    Field::Toggle {
+        path: "overlay.matrix",
+        label: "Matrix rain",
+        def: false,
+    },
     Field::Number {
         path: "overlay.matrix.angle",
         label: "Rain angle",
@@ -182,14 +193,18 @@ mod tests {
             };
             for v in values {
                 if !want.contains(v) {
-                    problems.push(format!("{name}.{v}: in parameters.proto, not offered by the form"));
+                    problems.push(format!(
+                        "{name}.{v}: in parameters.proto, not offered by the form"
+                    ));
                 }
             }
             // the reverse direction: a value the form offers that upstream
             // removed would render a control the renderer rejects
             for d in want {
                 if !values.contains(d) {
-                    problems.push(format!("{name}.{d}: offered by the form, not in parameters.proto"));
+                    problems.push(format!(
+                        "{name}.{d}: offered by the form, not in parameters.proto"
+                    ));
                 }
             }
         }

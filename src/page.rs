@@ -50,7 +50,12 @@ pub enum Control {
     },
 }
 
-fn radios(path: &'static str, label: &'static str, values: &[&'static str], current: &str) -> Control {
+fn radios(
+    path: &'static str,
+    label: &'static str,
+    values: &[&'static str],
+    current: &str,
+) -> Control {
     Control::Seg {
         name: path,
         label,
@@ -72,21 +77,36 @@ pub fn controls(form: Option<&Form>) -> Vec<Control> {
     FIELDS
         .iter()
         .map(|field| match field {
-            Field::Number { path, label, min, max, step, def } => Control::Number {
+            Field::Number {
+                path,
+                label,
+                min,
+                max,
+                step,
+                def,
+            } => Control::Number {
                 id: id(path, None),
                 name: path,
                 label,
                 min: *min,
                 max: *max,
                 step: *step,
-                value: value(path).map(str::to_string).unwrap_or_else(|| def.to_string()),
+                value: value(path)
+                    .map(str::to_string)
+                    .unwrap_or_else(|| def.to_string()),
             },
-            Field::Enum { path, label, values, def } => {
-                radios(path, label, values, value(path).unwrap_or(def))
-            }
-            Field::Choice { path, label, branches, def } => {
-                radios(path, label, branches, value(path).unwrap_or(def))
-            }
+            Field::Enum {
+                path,
+                label,
+                values,
+                def,
+            } => radios(path, label, values, value(path).unwrap_or(def)),
+            Field::Choice {
+                path,
+                label,
+                branches,
+                def,
+            } => radios(path, label, branches, value(path).unwrap_or(def)),
             Field::Toggle { path, label, def } => Control::Toggle {
                 id: id(path, None),
                 name: path,
@@ -161,9 +181,17 @@ mod tests {
     fn a_posted_form_wins_over_the_schema_default() {
         let form: Form = vec![("background.motion".into(), "SCAN".into())];
         let cs = controls(Some(&form));
-        let Control::Seg { options, .. } = &cs[1] else { panic!("field 1 is a segmented control") };
+        let Control::Seg { options, .. } = &cs[1] else {
+            panic!("field 1 is a segmented control")
+        };
         assert!(options.iter().find(|o| o.value == "SCAN").unwrap().checked);
-        assert!(!options.iter().find(|o| o.value == "STATIC").unwrap().checked);
+        assert!(
+            !options
+                .iter()
+                .find(|o| o.value == "STATIC")
+                .unwrap()
+                .checked
+        );
     }
 
     #[test]
@@ -183,7 +211,9 @@ mod tests {
             .iter()
             .flat_map(|c| match c {
                 Control::Seg { options, .. } => options.iter().map(|o| o.id.clone()).collect(),
-                Control::Number { id, .. } | Control::Toggle { id, .. } | Control::Color { id, .. } => {
+                Control::Number { id, .. }
+                | Control::Toggle { id, .. }
+                | Control::Color { id, .. } => {
                     vec![id.clone()]
                 }
             })
@@ -258,7 +288,10 @@ mod tests {
         .unwrap();
         assert!(html.contains("hx-swap-oob=\"true\""));
         assert!(!html.contains(" hidden"));
-        assert!(html.contains("&#60;script&#62;"), "the message is escaped: {html}");
+        assert!(
+            html.contains("&#60;script&#62;"),
+            "the message is escaped: {html}"
+        );
         assert!(html.contains("<svg/>"), "the render is not: {html}");
     }
 }
