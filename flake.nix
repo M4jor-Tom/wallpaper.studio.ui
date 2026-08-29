@@ -121,7 +121,11 @@
             in
             pkgs.writeShellApplication {
               inherit name;
-              runtimeInputs = [ pkgs.cargo pkgs.rustc pkgs.protobuf ];
+              # stdenv.cc is the linker: packages.server gets one from stdenv,
+              # a writeShellApplication does not, and without it cargo build
+              # here dies with `linker `cc` not found` on any machine with no
+              # system cc.
+              runtimeInputs = [ pkgs.cargo pkgs.rustc pkgs.stdenv.cc pkgs.protobuf ];
               text = ''
                 if [ ! -f Cargo.toml ]; then
                   echo "${name}: run this from the wallpaper.studio.ui checkout" >&2
@@ -148,6 +152,11 @@
           };
         }
       );
+
+      # `nix flake check` on its own only evaluates the outputs -- it would pass
+      # on a flake whose package does not build. Pointing it at the package
+      # gives it something to realise: the server compiles and its tests run.
+      checks = forAll (pkgs: { server = self.packages.${pkgs.stdenv.hostPlatform.system}.server; });
 
       devShells = forAll (pkgs: {
         default = pkgs.mkShell {
