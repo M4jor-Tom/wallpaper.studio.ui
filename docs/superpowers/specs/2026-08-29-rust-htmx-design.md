@@ -134,11 +134,25 @@ the custom-size field, echoed back into a `value=` attribute, and
 | method | path | body | response |
 |---|---|---|---|
 | GET | `/` | — | the page, with the default config already rendered |
+| POST | `/` | form | the page again, from the posted form; nothing else changes |
 | POST | `/preview` | form | `<svg>` for `#stage`, plus the banner out-of-band |
-| POST | `/theme` | form | the page, cookie flipped, form values preserved |
+| POST | `/theme` | form | the page, cookie set to the target the pressed button named, form values preserved |
 | POST | `/download.svg` | form | `image/svg+xml` as an attachment |
 | GET | `/styles.css`, `/htmx.min.js` | — | embedded via `include_str!` |
 | — | anything else | — | 404 |
+
+`POST /` exists because the dock is a `<form>`. Enter in *Custom size* — the
+only free-text field on the page — is implicit submission, and implicit
+submission presses the form's default button whether or not anyone designed
+one. The theme buttons are form-owned and precede `#dl-svg` in tree order, so
+that button was a theme button: the reflex gesture in a text field flipped the
+palette and persisted a cookie nobody asked to change. A `hidden` submit ahead
+of them in `<header>` takes the role instead and posts here, so Enter means
+"apply" — the render every keystroke already produced, the theme in force left
+alone, no cookie written. It also closes a trap `#cfg` sets by having no
+`action`: a submit button without a `formaction` posts to the document URL,
+which on the store-keyed entry URL below is `/` carrying a query — a 404 until
+this route existed.
 
 **There is no server-side state.** The form is the config: every request
 carries every control's value, the server rebuilds the JSON from those pairs,
@@ -165,6 +179,7 @@ buttons submit natively. `#stage` listens on its behalf:
 | conditional field hiding | CSS `:has()` |
 | Download SVG | `<button formaction="/download.svg">`, native submit |
 | theme toggle | `<button formaction="/theme">`, native submit |
+| Enter in a text field | the `hidden` default button, native submit to `/` |
 
 `changed` is deliberately absent from `hx-trigger`. It tests the value of the
 element the trigger is attached to, and `#stage` is a `<div>` with no value;
@@ -265,9 +280,10 @@ today.
 
 ## Theme, and the one CSS change it forces
 
-The preference is a cookie. `POST /theme` flips it and returns the page with
-the posted config intact and `data-theme` already on `<html>`, so a returning
-visitor never sees a wrong-theme first paint.
+The preference is a cookie. `POST /theme` sets it to the target the pressed
+button named and returns the page with the posted config intact and
+`data-theme` already on `<html>`, so a returning visitor never sees a
+wrong-theme first paint.
 
 The cost is paid by the visitor who has *not* toggled: no cookie means the
 server cannot know their OS preference, and no script runs afterwards to
@@ -285,6 +301,19 @@ correct it. So the dark palette must be expressed twice:
 takes colours only. The duplication is the honest answer and is commented as
 such. It replaces today's one-line `color-scheme` mirror, which only had to
 prevent a flash because `theme.ts` was about to fix the rest.
+
+That same blindness is why `/theme` reads a target instead of flipping the
+cookie. Before one exists the server cannot tell which palette is on screen —
+no cookie reads as "not dark", exactly as light does — so a flip sent every
+dark-OS visitor's first press *to* dark, the palette they were already looking
+at, and the press looked like it had done nothing. `theme.ts` never had this
+problem: it read the media query at load and always knew the true current
+theme. Putting the destination in the request moves the one fact the server is
+missing along with it. So: two buttons, one per destination, each labelled with
+the palette it is shown *under* — the current one, exactly as the single old
+button read — and carrying where a press goes in its `value`, with CSS picking
+which of the two is in the tree. The old blind flip survives only as the
+fallback for a POST that is neither button.
 
 The toggle is a native submit, so the address bar ends at `/theme` and a reload
 would re-POST. surf has neither an address bar nor a reload button, and this is
@@ -319,8 +348,19 @@ than it was to run.
 `?<store-name>` query key: darkhttpd served files whose mtime nix had normalised
 to the epoch, WebKit derived a freshness lifetime of decades from that, and
 served them without asking. The query key was the only cache key that could
-reach the browser. A live server sending `no-store` from the very first response
-never creates the entry, so the key has nothing left to do and goes.
+reach the browser.
+
+**The header does not retire the key.** The two govern different tenses:
+`no-store` stops a *new* entry from being written, and only a new URL defeats
+an entry that *already exists*. Nothing in a response can reach the second
+case, because the stale entry is answered with no request at all — the header
+that would correct it rides on a response the browser never fetches. Everyone
+upgrading from an older build is exactly that case, and this document said "the
+key has nothing left to do" until `nix run` put a months-old UI in the window
+to prove otherwise. So `windowed` keeps its `query` argument and
+`packages.default` passes the server's store name, which changes exactly when
+its contents do. Only the document needs the key: the two assets come from the
+same binary, and the document that references them is what the key re-fetches.
 
 That lesson also says the proof is the rendered window, not the response. It
 applies here: `no-store` is a claim until a screenshot of surf backs it.
@@ -334,16 +374,19 @@ packages.server  = rustPlatform.buildRustPackage {
   nativeBuildInputs = [ protobuf ];
   PROTOC = "${protobuf}/bin/protoc";
 };
-packages.default = writeShellApplication (windowed { serve = "server --port 5174"; });
+packages.default = writeShellApplication (windowed {
+  serve = "server --port 5174";
+  query = "?${baseNameOf server}";   # the cache key -- see Caching
+});
 apps.dev         = windowed over `cargo run -- --port 5173`;
 devShells        = cargo rustc rustfmt clippy protobuf;
 ```
 
 `windowed` is unchanged, and so is everything it guarantees: surf on Linux, the
 port probed before the window opens, the server and the window dying together,
-a message and no window elsewhere. Only what it serves is different. `darkhttpd`
-leaves the closure — the server is ours now — and with it the `?query` argument
-`windowed` took solely for the cache key.
+a message and no window elsewhere. Only what it serves is different: `darkhttpd`
+leaves the closure — the server is ours now — while the `?query` argument stays,
+for the reason **Caching** gives.
 
 `packages.site` becomes `packages.server`: a binary rather than a directory of
 static files. Anything that depended on `packages.default` sees no change.
