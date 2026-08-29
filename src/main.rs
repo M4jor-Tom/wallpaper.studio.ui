@@ -9,7 +9,6 @@ mod schema;
 use askama::Template;
 use cfg::Form;
 use page::{Page, Preview, controls};
-use std::io::Read;
 use tiny_http::{Header, Method, Request, Response, Server};
 
 const STYLES: &str = include_str!("../assets/styles.css");
@@ -177,7 +176,7 @@ mod tests {
 
     #[test]
     fn every_response_refuses_to_be_cached() {
-        for url in ["/", "/styles.css", "/htmx.min.js"] {
+        for url in ["/", "/styles.css", "/htmx.min.js", "/nope"] {
             let r = get(url);
             assert!(
                 r.headers.iter().any(|(k, v)| *k == "Cache-Control" && v == "no-store"),
