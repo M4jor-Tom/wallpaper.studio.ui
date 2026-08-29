@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en"{% if !theme.is_empty() %} data-theme="{{ theme }}"{% endif %}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>bgsvg studio</title>
+    <script src="/htmx.min.js" defer></script>
+  </head>
+  <body>
+    {# The form carries no htmx attributes, so its submit buttons submit
+       natively. #stage listens on its behalf. `changed` is deliberately absent:
+       it tests the value of the element the trigger is on, and this is a div. #}
+    <div id="stage" hx-post="/preview" hx-include="#cfg"
+         hx-trigger="input delay:100ms from:#cfg" hx-swap="innerHTML">{{ svg|safe }}</div>
+    <div id="dock">
+      <header>
+        <h1>bgsvg studio</h1>
+        <button type="submit" id="theme-toggle" form="cfg" formaction="/theme"><span data-theme-name="light">Blueprint</span><span data-theme-name="dark">Void</span></button>
+      </header>
+      <main>
+        <form id="cfg" method="post">
+          <p id="error" role="alert"{% if error.is_empty() %} hidden{% endif %}>{{ error }}</p>
+          <section id="controls" aria-label="Configuration">
+            {% for c in controls %}{% match c %}
+            {% when Control::Number { id, name, label, min, max, step, value } %}
+            <div class="row" data-field="{{ name }}">
+              <label for="{{ id }}">{{ label }}</label>
+              <input type="number" id="{{ id }}" name="{{ name }}" min="{{ min }}" max="{{ max }}" step="{{ step }}" value="{{ value }}">
+            </div>
+            {% when Control::Seg { name, label, options } %}
+            <fieldset class="seg" data-field="{{ name }}">
+              <legend>{{ label }}</legend><div class="seg-track">
+              {% for o in options %}
+              <input type="radio" id="{{ o.id }}" name="{{ name }}" value="{{ o.value }}"{% if o.checked %} checked{% endif %}>
+              <label for="{{ o.id }}">{{ o.value }}</label>
+              {% endfor %}
+              </div>
+            </fieldset>
+            {% when Control::Toggle { id, name, label, checked } %}
+            <div class="row" data-field="{{ name }}">
+              <input type="checkbox" id="{{ id }}" name="{{ name }}"{% if *checked %} checked{% endif %}>
+              <label for="{{ id }}">{{ label }}</label>
+            </div>
+            {% when Control::Color { id, name, label, swatch, full } %}
+            <div class="row" data-field="{{ name }}">
+              <label for="{{ id }}">{{ label }}</label>
+              <input type="color" id="{{ id }}" name="{{ name }}" value="{{ swatch }}">
+              <output for="{{ id }}">{{ full }}</output>
+            </div>
+            {% endmatch %}{% endfor %}
+          </section>
+          <section id="export" aria-label="Export">
+            <div class="row">
+              <label for="res">Resolution</label>
+              <select id="res" name="res">
+                {% for r in resolutions %}<option value="{{ r.0 }}"{% if r.0 == res %} selected{% endif %}>{{ r.0 }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="row">
+              <label for="res-custom">Custom size</label>
+              <input type="text" id="res-custom" name="res-custom" placeholder="WIDTHxHEIGHT" autocomplete="off" value="{{ res_custom }}" />
+            </div>
+            <button type="submit" id="dl-svg" formaction="/download.svg">Download SVG</button>
+          </section>
+        </form>
+      </main>
+    </div>
+  </body>
+</html>

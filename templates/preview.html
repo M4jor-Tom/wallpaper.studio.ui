@@ -1,0 +1,5 @@
+{# The render goes to #stage; the banner rides along out of band, so a keystroke
+   updates both without the form losing focus. `|safe` is the renderer's own
+   output, not anything a reader typed. #}
+{{ svg|safe }}
+<p id="error" role="alert" hx-swap-oob="true"{% if error.is_empty() %} hidden{% endif %}>{{ error }}</p>

@@ -1,4 +1,5 @@
 mod cfg;
+mod page;
 mod schema;
 
 fn main() {}
