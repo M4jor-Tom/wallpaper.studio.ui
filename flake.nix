@@ -20,7 +20,7 @@
       # fixed ports.
       windowed =
         pkgs:
-        { name, port, serve }:
+        { name, port, serve, query ? "" }:
         if pkgs.stdenv.hostPlatform.isLinux then
           ''
             if (exec 3<>/dev/tcp/127.0.0.1/${port}) 2>/dev/null; then
@@ -36,7 +36,7 @@
                 { echo "${name}: server exited before it was listening" >&2; exit 1; }
               sleep 0.1
             done
-            ${pkgs.surf}/bin/surf 'http://127.0.0.1:${port}/' &
+            ${pkgs.surf}/bin/surf 'http://127.0.0.1:${port}/${query}' &
             window=$!
             # backgrounded so the shell waits in `wait`, where it still runs
             # traps: a foreground child defers them until it exits, which is
@@ -47,7 +47,7 @@
         else
           ''
             # no window here: surf is X11/GTK, and nothing else is light
-            echo "${name}: http://127.0.0.1:${port}/"
+            echo "${name}: http://127.0.0.1:${port}/${query}"
             exec ${serve}
           '';
     in
@@ -103,6 +103,26 @@
               text = windowed pkgs {
                 inherit name port;
                 serve = "${server}/bin/wallpaper-studio-ui --port ${port}";
+
+                # The store name of the server, which changes exactly when its
+                # contents do -- so it is the cache key this URL should always
+                # have carried. `Cache-Control: no-store` does not replace it,
+                # and believing it did is what put a months-old UI in the
+                # window: the header stops a *new* entry being written, it
+                # cannot evict the one WebKit already holds under this URL and
+                # never revalidates. Nix gives every store file the epoch as
+                # its mtime, WebKit turns that 1970 Last-Modified into a
+                # heuristic freshness of decades, and it then answers from the
+                # entry without asking the server at all -- so the header on
+                # the response it never fetches is never read. The two are
+                # complementary; removing either brings the stale window back.
+                #
+                # Only the document needs it: /styles.css and /htmx.min.js are
+                # served by the same binary, and the document that references
+                # them is what the key re-fetches. `nix run .#dev` has no store
+                # path to key on and so is exposed to the same staleness on
+                # 5173; the remedy there is `rm -rf ~/.surf/cache`.
+                query = "?${builtins.baseNameOf server}";
               };
             };
         }

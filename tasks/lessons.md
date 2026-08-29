@@ -23,6 +23,32 @@ access log: no request in the log means a cache, and the cache key is the URL.
 `$XDG_CACHE_HOME/surf`. Looking in the XDG location and finding nothing is not
 evidence that no cache exists.
 
+## `no-store` cannot evict what the cache already holds
+
+**Correction (2026-08-29):** the rust rewrite removed the `?<store name>` key
+from the window's URL, on the reasoning that `Cache-Control: no-store` had made
+it redundant. `nix run` then opened surf on a months-old UI -- a `JSON` button,
+a `Download JSON` next to `Download SVG`, a full-width dock -- while `curl` on
+that same port returned the correct page and `~/.surf/cache` held 147 entries.
+Deleting that directory fixed the window immediately.
+
+**Pattern:** the two mechanisms govern different tenses. `no-store` stops a
+*new* entry from being written; the URL key defeats an entry that *already
+exists*, and only a new key can, since the stale entry is answered without a
+request (see above: epoch mtime, decades of heuristic freshness) and the header
+that would correct it rides on a response nobody fetches. Neither one covers
+the other. Everyone upgrading from an older build is the case that breaks, and
+"the header makes the key redundant" is the exact wrong inference.
+
+**Rule for myself:** never retire a cache-busting key because a cache header
+was added -- ask which tense each one governs, and keep both. When a URL grows
+a query key, check what routes on it: `route()` matched the whole URL, so the
+very request the key produces answered 404 until the path was split off.
+
+**Also:** this was caught only by looking at the window, which is precisely
+what the entry above already said to do. A rule written down here is worth
+nothing if it is only reread after the same failure repeats.
+
 ## A green `nix flake check` can have built nothing
 
 **Correction (2026-08-29):** the rewritten `flake.nix` dropped `checks`
