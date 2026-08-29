@@ -147,8 +147,6 @@ header button:hover, #export button:hover { border-color: var(--accent); }
   box-shadow: var(--lift);
 }
 
-main { display: grid; gap: var(--space); }
-
 /* one card, two groups: the hairline is what a second card's edge used to say */
 #export { border-top: 1px solid var(--rule); padding-top: var(--space); }
 
@@ -243,8 +241,9 @@ input[type="number"], input[type="color"], input[type="text"], select {
   border: 1px solid var(--accent-2);
   color: var(--ink);
   font-family: ui-monospace, monospace;
-  /* errorText() quotes the offending line and puts a caret under the column;
-     both only mean anything if the newlines and the spaces survive */
+  /* the banner prints the renderer's or parse_res's own message, which quotes
+     what it rejected: the spacing inside the quote is theirs to decide, and a
+     long one still has to wrap inside the card rather than widen it */
   white-space: pre-wrap;
 }
 #error[hidden] { display: none; }
@@ -275,14 +274,16 @@ input[type="number"], input[type="color"], input[type="text"], select {
 #controls:has(#f-icon-ship:checked) [data-field^="icon.hexatri"] { display: none; }
 #controls:not(:has(#f-overlay-matrix:checked)) [data-field^="overlay.matrix."] { display: none; }
 
-/* Two buttons, one visible: each names the theme a press will *produce*, so
-   the reader never has to guess which way it goes. The server knows which
-   palette is in force only once a cookie exists, so before then the choice
-   has to follow the same condition the palette above does -- both buttons are
-   in the markup and CSS shows exactly one. display:none takes the other out
-   of the accessibility tree, so it cannot be tabbed to or announced.
-   inline-block, not inline: header button carries padding and a min-height,
-   which an inline box would clip. */
+/* Two buttons, one visible. Each is labelled with the theme it is shown
+   *under* -- the one in force, which is what the single old button read -- and
+   carries the theme a press moves to in its `value`. Label and destination are
+   deliberately different words, so relabelling these to agree with `value` is
+   not a fix; it is a different control.
+   Both are in the markup because the server knows which palette is in force
+   only once a cookie exists, so before then the choice has to follow the same
+   condition the palette above does, and only CSS can. display:none keeps the
+   other out of the accessibility tree, so it can be neither tabbed to nor
+   announced. */
 header [data-theme-name="dark"] { display: none; }
 :root[data-theme="dark"] header [data-theme-name="light"] { display: none; }
 :root[data-theme="dark"] header [data-theme-name="dark"] { display: inline-block; }

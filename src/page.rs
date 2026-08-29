@@ -1,11 +1,11 @@
 //! The view model. Every control is resolved to exactly what the template
 //! prints, so the template branches on a variant and never computes.
 
-use crate::cfg::{Form, get};
+use crate::cfg::{Form, get, with_alpha};
 use crate::schema::{FIELDS, Field};
 use askama::Template;
 
-/// `f-background-motion`, `f-icon-ship` -- the ids index.html and the CSS use.
+/// `f-background-motion`, `f-icon-ship` -- the ids the CSS uses.
 fn id(path: &str, value: Option<&str>) -> String {
     let base = format!("f-{}", path.replace('.', "-"));
     match value {
@@ -117,13 +117,11 @@ pub fn controls(form: Option<&Form>) -> Vec<Control> {
                 },
             },
             Field::Color { path, label, def } => {
+                // the posted value is #rrggbb; the output shows the value the
+                // config will carry, from the function that builds it, so the
+                // two cannot disagree
                 let full = value(path)
-                    .map(|v| {
-                        // the posted value is #rrggbb; the output shows the
-                        // value the config will carry, alpha included
-                        let alpha = if def.len() == 9 { &def[7..] } else { "" };
-                        format!("{v}{alpha}")
-                    })
+                    .map(|v| with_alpha(v, def))
                     .unwrap_or_else(|| def.to_string());
                 Control::Color {
                     id: id(path, None),
@@ -254,9 +252,22 @@ mod tests {
             "data-theme-name=\"dark\"",
             "data-field=\"icon.hexatri.motion\"",
             "data-field=\"overlay.matrix.angle\"",
+            // the visible word alone says neither that this is a theme control
+            // nor that pressing it switches anything, and it has to stay
+            // inside the accessible name for WCAG 2.5.3
+            "aria-label=\"Theme: Blueprint. Switch.\">Blueprint<",
+            "aria-label=\"Theme: Void. Switch.\">Void<",
         ] {
             assert!(html.contains(needle), "missing {needle}\n{html}");
         }
+
+        // Implicit submission clicks the first submit button in tree order.
+        // Let a theme button get there first and Enter in Custom size flips
+        // the palette.
+        let default_button = html
+            .find("<button type=\"submit\" hidden form=\"cfg\" formaction=\"/\">")
+            .expect("a default button before the theme buttons");
+        assert!(default_button < html.find("formaction=\"/theme\"").unwrap());
     }
 
     #[test]
@@ -274,7 +285,7 @@ mod tests {
         .expect("the page template renders");
         assert!(html.contains("<html lang=\"en\">"), "{html}");
         // not `contains("data-theme")`: that also matches the unrelated
-        // `data-theme-name` spans on the theme-toggle button
+        // `data-theme-name` on each of the two theme buttons
         assert!(!html.contains("data-theme=\""), "{html}");
     }
 

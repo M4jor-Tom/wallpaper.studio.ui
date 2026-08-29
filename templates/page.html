@@ -16,9 +16,14 @@
          hx-trigger="input delay:100ms from:#cfg" hx-swap="innerHTML">{{ svg|safe }}</div>
     <div id="dock">
       <header>
+        {# The form's default button, and the reason it is first: implicit
+           submission clicks the first submit button in tree order, so without
+           this one Enter in Custom size would press a theme button. Enter
+           means "apply", which is what every keystroke already does. #}
+        <button type="submit" hidden form="cfg" formaction="/"></button>
         <h1>bgsvg studio</h1>
-        <button type="submit" name="theme" value="dark" data-theme-name="light" form="cfg" formaction="/theme">Blueprint</button>
-        <button type="submit" name="theme" value="light" data-theme-name="dark" form="cfg" formaction="/theme">Void</button>
+        <button type="submit" name="theme" value="dark" data-theme-name="light" form="cfg" formaction="/theme" aria-label="Theme: Blueprint. Switch.">Blueprint</button>
+        <button type="submit" name="theme" value="light" data-theme-name="dark" form="cfg" formaction="/theme" aria-label="Theme: Void. Switch.">Void</button>
       </header>
       <main>
         <form id="cfg" method="post">

@@ -41,6 +41,22 @@ pub fn visible(field: &Field, form: &Form) -> bool {
     true
 }
 
+/// The colour a `#rrggbb` picker value stands for. The picker cannot express
+/// alpha, so the schema default's suffix is appended -- and both readers of
+/// that rule call this one: `build()` decides what the renderer receives,
+/// `page.rs` what the `<output>` beside the picker claims it received. Two
+/// spellings of the rule would let the `<output>` lie.
+///
+/// form.ts kept whatever alpha the *config* carried, because a pasted JSON
+/// could set one; with no JSON pane the schema default is the only alpha there
+/// is.
+/// ponytail: schema alpha only, revisit if a config ever arrives by another
+/// route than these controls.
+pub fn with_alpha(swatch: &str, def: &str) -> String {
+    let alpha = if def.len() == 9 { &def[7..] } else { "" };
+    format!("{swatch}{alpha}")
+}
+
 /// Set one dotted path, creating the objects on the way and replacing only the
 /// leaf. FIELDS is ordered so a branch is created before the fields inside it.
 fn set(cfg: &mut Value, path: &str, value: Value) {
@@ -86,16 +102,9 @@ pub fn build(form: &Form) -> Value {
                     set(&mut cfg, path, json!({}));
                 }
             }
-            // The picker gives #rrggbb and cannot express alpha. form.ts kept
-            // whatever alpha the config carried, because a pasted JSON could
-            // set one; with no JSON pane the schema default is the only alpha
-            // there is.
-            // ponytail: schema alpha only, revisit if a config ever arrives by
-            // another route than these controls.
             Field::Color { path, def, .. } => {
                 if let Some(v) = get(form, path) {
-                    let alpha = if def.len() == 9 { &def[7..] } else { "" };
-                    set(&mut cfg, path, json!(format!("{v}{alpha}")));
+                    set(&mut cfg, path, json!(with_alpha(v, def)));
                 }
             }
         }

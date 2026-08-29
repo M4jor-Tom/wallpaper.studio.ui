@@ -168,6 +168,11 @@ pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Re
         (Method::Get, "/htmx.min.js") => {
             Reply::new(200, "text/javascript; charset=utf-8", HTMX.to_string())
         }
+        // Enter in a text field. The hidden default button in <header> sends
+        // it here rather than to a theme button, so the gesture applies the
+        // config -- which is all the live preview was doing anyway -- instead
+        // of changing a palette nobody asked about.
+        (Method::Post, "/") => page(Some(&cfg::parse(body)), theme_of(cookie), String::new()),
         (Method::Post, "/preview") => preview(&cfg::parse(body)),
         (Method::Post, "/theme") => {
             let form = cfg::parse(body);
@@ -301,7 +306,9 @@ mod tests {
     #[test]
     fn an_unknown_path_is_a_404() {
         assert_eq!(get("/nope").status, 404);
-        assert_eq!(route(&Method::Post, "/", "", None).status, 404);
+        assert_eq!(route(&Method::Post, "/nope", "", None).status, 404);
+        // GET /theme is not a route either: only the method the button uses is
+        assert_eq!(get("/theme").status, 404);
     }
 
     #[test]
@@ -399,6 +406,26 @@ mod tests {
         );
         assert!(tall.body.contains("width=\"1080\""), "{:.200}", tall.body);
         assert!(tall.body.contains("height=\"1920\""), "{:.200}", tall.body);
+    }
+
+    #[test]
+    fn pressing_enter_applies_the_config_and_leaves_the_theme_alone() {
+        // the reflex gesture in Custom size, the only free-text field there
+        // is. The theme buttons are form-owned and would otherwise be first in
+        // tree order, so this used to flip the palette and persist a cookie.
+        let body = DEFAULTS.replace("motion=STATIC", "motion=SCAN");
+        let r = route(&Method::Post, "/", &body, Some("theme=dark"));
+        assert_eq!(r.status, 200);
+        assert!(r.body.contains("<svg"), "Enter re-renders");
+        assert!(
+            r.body.contains("value=\"SCAN\" checked"),
+            "the posted config comes back intact"
+        );
+        assert!(r.body.contains("data-theme=\"dark\""), "the theme in force");
+        assert!(
+            !r.headers.iter().any(|(k, _)| *k == "Set-Cookie"),
+            "Enter is not a theme press"
+        );
     }
 
     #[test]
