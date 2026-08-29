@@ -46,9 +46,7 @@ impl Reply {
 }
 
 fn theme_of(cookie: Option<&str>) -> &'static str {
-    let has = |want: &str| {
-        cookie.is_some_and(|c| c.split(';').any(|p| p.trim() == want))
-    };
+    let has = |want: &str| cookie.is_some_and(|c| c.split(';').any(|p| p.trim() == want));
     if has("theme=dark") {
         "dark"
     } else if has("theme=light") {
@@ -92,7 +90,9 @@ fn page(form: Option<&Form>, theme: &'static str, error: String) -> Reply {
         theme,
         controls: controls(form),
         resolutions: &bgsvg::params::RESOLUTIONS,
-        res: cfg::get(f, "res").unwrap_or(bgsvg::params::RESOLUTIONS[0].0).to_string(),
+        res: cfg::get(f, "res")
+            .unwrap_or(bgsvg::params::RESOLUTIONS[0].0)
+            .to_string(),
         res_custom: cfg::get(f, "res-custom").unwrap_or("").to_string(),
         error,
         svg,
@@ -107,20 +107,50 @@ fn page(form: Option<&Form>, theme: &'static str, error: String) -> Reply {
 fn preview(form: &Form) -> Reply {
     match render(form) {
         Ok(svg) => Reply::html(
-            Preview { svg, error: String::new() }
-                .render()
-                .expect("the preview template renders"),
+            Preview {
+                svg,
+                error: String::new(),
+            }
+            .render()
+            .expect("the preview template renders"),
         ),
         // The preview never blanks: it holds the last valid render, so a config
         // in a half-finished state does not destroy what you were looking at.
         // Without HX-Reswap the empty body would be swapped in and #stage would
         // go blank; the out-of-band banner is applied either way.
         Err(e) => Reply::html(
-            Preview { svg: String::new(), error: e }
-                .render()
-                .expect("the preview template renders"),
+            Preview {
+                svg: String::new(),
+                error: e,
+            }
+            .render()
+            .expect("the preview template renders"),
         )
         .with("HX-Reswap", "none"),
+    }
+}
+
+/// A native form submit. An attachment response does not navigate, so the page
+/// stays exactly where it was -- what the blob-and-anchor dance achieved, with
+/// no object URL to revoke.
+///
+/// The filename is the renderer's, not a copy of it: `lib.rs` builds the CLI's
+/// output name the same way, from the same Scene, so a download lands beside
+/// CLI output with a matching name and cannot drift from it.
+fn download(form: &Form, theme: &'static str) -> Reply {
+    let json = cfg::build(form).to_string();
+    let name = match (resolve(form), bgsvg::load(&json)) {
+        (Ok((w, h)), Ok((_, scene))) => format!("trihex-{}-{w}x{h}.svg", scene.slug()),
+        // whatever failed, the page carries the reason -- this used to throw
+        // into the console and look like a dead button
+        _ => return page(Some(form), theme, String::new()),
+    };
+    match render(form) {
+        Ok(svg) => Reply::new(200, "image/svg+xml", svg).with(
+            "Content-Disposition",
+            &format!("attachment; filename=\"{name}\""),
+        ),
+        Err(e) => page(Some(form), theme, e),
     }
 }
 
@@ -134,6 +164,21 @@ pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Re
             Reply::new(200, "text/javascript; charset=utf-8", HTMX.to_string())
         }
         (Method::Post, "/preview") => preview(&cfg::parse(body)),
+        (Method::Post, "/theme") => {
+            let form = cfg::parse(body);
+            let next = if theme_of(cookie) == "dark" {
+                "light"
+            } else {
+                "dark"
+            };
+            page(Some(&form), next, String::new()).with(
+                "Set-Cookie",
+                // a year, path-wide, not sent cross-site: it is a display
+                // preference on a loopback server, nothing more
+                &format!("theme={next}; Path=/; Max-Age=31536000; SameSite=Lax"),
+            )
+        }
+        (Method::Post, "/download.svg") => download(&cfg::parse(body), theme_of(cookie)),
         _ => Reply::new(404, "text/plain; charset=utf-8", "not found".to_string()),
     }
 }
@@ -185,7 +230,11 @@ mod tests {
     #[test]
     fn the_renderer_is_linked() {
         let svg = bgsvg::render_to_string("{}", 640, 360).expect("the empty config renders");
-        assert!(svg.starts_with("<svg"), "expected an SVG document, got {:.40}", svg);
+        assert!(
+            svg.starts_with("<svg"),
+            "expected an SVG document, got {:.40}",
+            svg
+        );
     }
 
     #[test]
@@ -194,7 +243,11 @@ mod tests {
         assert_eq!(r.status, 200);
         assert!(r.body.contains("<svg"), "the first paint carries a render");
         assert!(r.body.contains("id=\"cfg\""));
-        assert!(r.headers.iter().any(|(k, v)| *k == "Content-Type" && v.starts_with("text/html")));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Content-Type" && v.starts_with("text/html"))
+        );
     }
 
     #[test]
@@ -202,7 +255,9 @@ mod tests {
         for url in ["/", "/styles.css", "/htmx.min.js", "/nope"] {
             let r = get(url);
             assert!(
-                r.headers.iter().any(|(k, v)| *k == "Cache-Control" && v == "no-store"),
+                r.headers
+                    .iter()
+                    .any(|(k, v)| *k == "Cache-Control" && v == "no-store"),
                 "{url} may be cached"
             );
         }
@@ -213,7 +268,11 @@ mod tests {
         let css = get("/styles.css");
         assert_eq!(css.status, 200);
         assert!(css.body.contains("#dock"));
-        assert!(css.headers.iter().any(|(k, v)| *k == "Content-Type" && v.starts_with("text/css")));
+        assert!(
+            css.headers
+                .iter()
+                .any(|(k, v)| *k == "Content-Type" && v.starts_with("text/css"))
+        );
 
         let js = get("/htmx.min.js");
         assert_eq!(js.status, 200);
@@ -232,9 +291,14 @@ mod tests {
         assert_eq!(theme_of(Some("theme=dark")), "dark");
         assert_eq!(theme_of(Some("other=1; theme=light")), "light");
         assert_eq!(theme_of(Some("theme=purple")), "");
-        assert!(get("/").body.contains("<html lang=\"en\">"), "no cookie means no attribute");
         assert!(
-            route(&Method::Get, "/", "", Some("theme=dark")).body.contains("data-theme=\"dark\""),
+            get("/").body.contains("<html lang=\"en\">"),
+            "no cookie means no attribute"
+        );
+        assert!(
+            route(&Method::Get, "/", "", Some("theme=dark"))
+                .body
+                .contains("data-theme=\"dark\""),
         );
     }
 
@@ -242,8 +306,14 @@ mod tests {
     fn the_resolution_comes_from_the_module_not_from_here() {
         // an empty custom field falls back to the preset; the module decides
         // what each spelling means, including that "" is 1080p
-        assert_eq!(resolve(&cfg::parse("res=1440p&res-custom=")), Ok((2560, 1440)));
-        assert_eq!(resolve(&cfg::parse("res=1080p&res-custom=800x600")), Ok((800, 600)));
+        assert_eq!(
+            resolve(&cfg::parse("res=1440p&res-custom=")),
+            Ok((2560, 1440))
+        );
+        assert_eq!(
+            resolve(&cfg::parse("res=1080p&res-custom=800x600")),
+            Ok((800, 600))
+        );
         assert!(resolve(&cfg::parse("res=1080p&res-custom=nonsense")).is_err());
     }
 
@@ -261,7 +331,10 @@ mod tests {
         let r = post("/preview", DEFAULTS);
         assert_eq!(r.status, 200);
         assert!(r.body.contains("<svg"));
-        assert!(r.body.contains("id=\"error\" role=\"alert\" hx-swap-oob=\"true\" hidden"));
+        assert!(
+            r.body
+                .contains("id=\"error\" role=\"alert\" hx-swap-oob=\"true\" hidden")
+        );
         assert!(!r.headers.iter().any(|(k, _)| *k == "HX-Reswap"));
     }
 
@@ -273,11 +346,17 @@ mod tests {
         let r = post("/preview", &body);
         assert_eq!(r.status, 200);
         assert!(
-            r.headers.iter().any(|(k, v)| *k == "HX-Reswap" && v == "none"),
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "HX-Reswap" && v == "none"),
             "without this htmx swaps the empty body in and #stage goes blank"
         );
         assert!(!r.body.contains("<svg"), "nothing may replace the render");
-        assert!(r.body.contains("CLOSEOPEN"), "the renderer's own words: {}", r.body);
+        assert!(
+            r.body.contains("CLOSEOPEN"),
+            "the renderer's own words: {}",
+            r.body
+        );
         assert!(!r.body.contains(" hidden"), "the banner has to be visible");
     }
 
@@ -285,14 +364,109 @@ mod tests {
     fn a_bad_resolution_reaches_the_same_banner() {
         let body = DEFAULTS.replace("res-custom=", "res-custom=1920x0");
         let r = post("/preview", &body);
-        assert!(r.headers.iter().any(|(k, v)| *k == "HX-Reswap" && v == "none"));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "HX-Reswap" && v == "none")
+        );
         assert!(!r.body.contains(" hidden"));
     }
 
     #[test]
     fn the_preview_follows_the_selected_output_ratio() {
-        let tall = post("/preview", &DEFAULTS.replace("res-custom=", "res-custom=1080x1920"));
+        let tall = post(
+            "/preview",
+            &DEFAULTS.replace("res-custom=", "res-custom=1080x1920"),
+        );
         assert!(tall.body.contains("width=\"1080\""), "{:.200}", tall.body);
         assert!(tall.body.contains("height=\"1920\""), "{:.200}", tall.body);
+    }
+
+    #[test]
+    fn toggling_the_theme_sets_the_cookie_and_keeps_the_config() {
+        let body = DEFAULTS.replace("motion=STATIC", "motion=SCAN");
+        let r = route(&Method::Post, "/theme", &body, None);
+        assert_eq!(r.status, 200);
+        let cookie = r
+            .headers
+            .iter()
+            .find(|(k, _)| *k == "Set-Cookie")
+            .expect("a cookie");
+        assert!(cookie.1.starts_with("theme=dark;"), "{}", cookie.1);
+        assert!(cookie.1.contains("SameSite=Lax"), "{}", cookie.1);
+        assert!(r.body.contains("data-theme=\"dark\""));
+        // the posted config survives the round trip
+        assert!(
+            r.body.contains("value=\"SCAN\" checked"),
+            "the choice is kept"
+        );
+        assert!(r.body.contains("<svg"), "and it is re-rendered");
+    }
+
+    #[test]
+    fn toggling_again_goes_back() {
+        let r = route(&Method::Post, "/theme", DEFAULTS, Some("theme=dark"));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Set-Cookie" && v.starts_with("theme=light;")),
+        );
+        assert!(r.body.contains("data-theme=\"light\""));
+    }
+
+    #[test]
+    fn a_download_is_an_attachment_named_the_way_the_cli_names_one() {
+        let r = post("/download.svg", DEFAULTS);
+        assert_eq!(r.status, 200);
+        assert!(r.body.starts_with("<svg"));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Content-Type" && v == "image/svg+xml")
+        );
+        let cd = r
+            .headers
+            .iter()
+            .find(|(k, _)| *k == "Content-Disposition")
+            .expect("attached");
+        // bgsvg's own lib.rs writes trihex-{slug}-{w}x{h}.svg
+        assert_eq!(
+            cd.1,
+            "attachment; filename=\"trihex-static-rotate-hexatri-none-none-1920x1080.svg\"",
+        );
+    }
+
+    #[test]
+    fn the_download_name_follows_the_config() {
+        let body = DEFAULTS
+            .replace("icon=hexatri", "icon=ship")
+            .replace("image=NONE", "image=STARFIELD")
+            .replace("res-custom=", "res-custom=800x600");
+        let r = post("/download.svg", &body);
+        let cd = &r
+            .headers
+            .iter()
+            .find(|(k, _)| *k == "Content-Disposition")
+            .unwrap()
+            .1;
+        // background.motion stays STATIC, and a ship's foreground reads
+        // "static" too -- the slug is fully determined, not a guess
+        assert_eq!(
+            *cd,
+            "attachment; filename=\"trihex-static-static-ship-space-none-800x600.svg\"",
+        );
+    }
+
+    #[test]
+    fn a_download_of_a_rejected_config_comes_back_as_the_page() {
+        let body = DEFAULTS.replace("motion=STATIC", "motion=CLOSEOPEN");
+        let r = post("/download.svg", &body);
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Content-Type" && v.starts_with("text/html"))
+        );
+        assert!(r.body.contains("CLOSEOPEN"), "the reason is on the page");
+        assert!(!r.headers.iter().any(|(k, _)| *k == "Content-Disposition"));
     }
 }
