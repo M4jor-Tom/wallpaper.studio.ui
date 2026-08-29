@@ -102,6 +102,28 @@ fn page(form: Option<&Form>, theme: &'static str, error: String) -> Reply {
     Reply::html(html)
 }
 
+/// A keystroke. The response is the render for #stage plus the banner out of
+/// band, so the form keeps its focus and its caret.
+fn preview(form: &Form) -> Reply {
+    match render(form) {
+        Ok(svg) => Reply::html(
+            Preview { svg, error: String::new() }
+                .render()
+                .expect("the preview template renders"),
+        ),
+        // The preview never blanks: it holds the last valid render, so a config
+        // in a half-finished state does not destroy what you were looking at.
+        // Without HX-Reswap the empty body would be swapped in and #stage would
+        // go blank; the out-of-band banner is applied either way.
+        Err(e) => Reply::html(
+            Preview { svg: String::new(), error: e }
+                .render()
+                .expect("the preview template renders"),
+        )
+        .with("HX-Reswap", "none"),
+    }
+}
+
 pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Reply {
     match (method, url) {
         (Method::Get, "/") => page(None, theme_of(cookie), String::new()),
@@ -111,6 +133,7 @@ pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Re
         (Method::Get, "/htmx.min.js") => {
             Reply::new(200, "text/javascript; charset=utf-8", HTMX.to_string())
         }
+        (Method::Post, "/preview") => preview(&cfg::parse(body)),
         _ => Reply::new(404, "text/plain; charset=utf-8", "not found".to_string()),
     }
 }
@@ -222,5 +245,54 @@ mod tests {
         assert_eq!(resolve(&cfg::parse("res=1440p&res-custom=")), Ok((2560, 1440)));
         assert_eq!(resolve(&cfg::parse("res=1080p&res-custom=800x600")), Ok((800, 600)));
         assert!(resolve(&cfg::parse("res=1080p&res-custom=nonsense")).is_err());
+    }
+
+    fn post(url: &str, body: &str) -> Reply {
+        route(&Method::Post, url, body, None)
+    }
+
+    /// What the browser posts with every control at its default.
+    const DEFAULTS: &str = "seed=0&background.motion=STATIC&background.image=NONE\
+&icon=hexatri&icon.hexatri.motion=ROTATE&overlay.matrix.angle=0\
+&overlay.matrix.color=%23395e53&res=1080p&res-custom=";
+
+    #[test]
+    fn a_preview_is_an_svg_and_a_silent_banner() {
+        let r = post("/preview", DEFAULTS);
+        assert_eq!(r.status, 200);
+        assert!(r.body.contains("<svg"));
+        assert!(r.body.contains("id=\"error\" role=\"alert\" hx-swap-oob=\"true\" hidden"));
+        assert!(!r.headers.iter().any(|(k, _)| *k == "HX-Reswap"));
+    }
+
+    #[test]
+    fn a_rejected_config_keeps_the_last_render_on_screen() {
+        // CLOSEOPEN with image NONE is reachable from the controls, and the
+        // renderer rejects it
+        let body = DEFAULTS.replace("motion=STATIC", "motion=CLOSEOPEN");
+        let r = post("/preview", &body);
+        assert_eq!(r.status, 200);
+        assert!(
+            r.headers.iter().any(|(k, v)| *k == "HX-Reswap" && v == "none"),
+            "without this htmx swaps the empty body in and #stage goes blank"
+        );
+        assert!(!r.body.contains("<svg"), "nothing may replace the render");
+        assert!(r.body.contains("CLOSEOPEN"), "the renderer's own words: {}", r.body);
+        assert!(!r.body.contains(" hidden"), "the banner has to be visible");
+    }
+
+    #[test]
+    fn a_bad_resolution_reaches_the_same_banner() {
+        let body = DEFAULTS.replace("res-custom=", "res-custom=1920x0");
+        let r = post("/preview", &body);
+        assert!(r.headers.iter().any(|(k, v)| *k == "HX-Reswap" && v == "none"));
+        assert!(!r.body.contains(" hidden"));
+    }
+
+    #[test]
+    fn the_preview_follows_the_selected_output_ratio() {
+        let tall = post("/preview", &DEFAULTS.replace("res-custom=", "res-custom=1080x1920"));
+        assert!(tall.body.contains("width=\"1080\""), "{:.200}", tall.body);
+        assert!(tall.body.contains("height=\"1920\""), "{:.200}", tall.body);
     }
 }
