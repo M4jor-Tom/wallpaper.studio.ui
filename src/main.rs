@@ -166,10 +166,14 @@ pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Re
         (Method::Post, "/preview") => preview(&cfg::parse(body)),
         (Method::Post, "/theme") => {
             let form = cfg::parse(body);
-            let next = if theme_of(cookie) == "dark" {
-                "light"
-            } else {
-                "dark"
+            // the button names the theme it produces, so this is normally a
+            // direct read, not a guess at the opposite of the current one;
+            // the flip is only a fallback for a POST from anywhere else
+            let next = match cfg::get(&form, "theme") {
+                Some("light") => "light",
+                Some("dark") => "dark",
+                _ if theme_of(cookie) == "dark" => "light",
+                _ => "dark",
             };
             page(Some(&form), next, String::new()).with(
                 "Set-Cookie",
@@ -384,9 +388,19 @@ mod tests {
 
     #[test]
     fn toggling_the_theme_sets_the_cookie_and_keeps_the_config() {
-        let body = DEFAULTS.replace("motion=STATIC", "motion=SCAN");
+        // the Blueprint button: visible under a light palette, posts the
+        // target it goes to, not a flip of the current one
+        let body = format!(
+            "{}&theme=dark",
+            DEFAULTS.replace("motion=STATIC", "motion=SCAN")
+        );
         let r = route(&Method::Post, "/theme", &body, None);
         assert_eq!(r.status, 200);
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Cache-Control" && v == "no-store")
+        );
         let cookie = r
             .headers
             .iter()
@@ -405,7 +419,25 @@ mod tests {
 
     #[test]
     fn toggling_again_goes_back() {
-        let r = route(&Method::Post, "/theme", DEFAULTS, Some("theme=dark"));
+        // the Void button, visible while the cookie reads dark, posts light
+        let body = format!("{DEFAULTS}&theme=light");
+        let r = route(&Method::Post, "/theme", &body, Some("theme=dark"));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Set-Cookie" && v.starts_with("theme=light;")),
+        );
+        assert!(r.body.contains("data-theme=\"light\""));
+    }
+
+    #[test]
+    fn the_first_press_under_a_dark_os_goes_to_light_in_one_step() {
+        // no cookie: CSS shows the Void button under a dark OS, and Void
+        // posts theme=light. The old flip -- theme_of(None) == "" so "not
+        // dark" -> always go to dark -- would have sent this reader further
+        // into the palette they were already looking at instead of out of it.
+        let body = format!("{DEFAULTS}&theme=light");
+        let r = route(&Method::Post, "/theme", &body, None);
         assert!(
             r.headers
                 .iter()
@@ -419,6 +451,11 @@ mod tests {
         let r = post("/download.svg", DEFAULTS);
         assert_eq!(r.status, 200);
         assert!(r.body.starts_with("<svg"));
+        assert!(
+            r.headers
+                .iter()
+                .any(|(k, v)| *k == "Cache-Control" && v == "no-store")
+        );
         assert!(
             r.headers
                 .iter()

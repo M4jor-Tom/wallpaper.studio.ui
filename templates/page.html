@@ -17,7 +17,8 @@
     <div id="dock">
       <header>
         <h1>bgsvg studio</h1>
-        <button type="submit" id="theme-toggle" form="cfg" formaction="/theme"><span data-theme-name="light">Blueprint</span><span data-theme-name="dark">Void</span></button>
+        <button type="submit" name="theme" value="dark" data-theme-name="light" form="cfg" formaction="/theme">Blueprint</button>
+        <button type="submit" name="theme" value="light" data-theme-name="dark" form="cfg" formaction="/theme">Void</button>
       </header>
       <main>
         <form id="cfg" method="post">
