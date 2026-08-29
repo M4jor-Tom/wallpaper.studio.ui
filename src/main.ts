@@ -14,7 +14,6 @@ const themeToggle = document.querySelector<HTMLButtonElement>("#theme-toggle")!;
 const resSelect = document.querySelector<HTMLSelectElement>("#res")!;
 const resCustom = document.querySelector<HTMLInputElement>("#res-custom")!;
 const dlSvg = document.querySelector<HTMLButtonElement>("#dl-svg")!;
-const copyJson = document.querySelector<HTMLButtonElement>("#copy-json")!;
 const cfg = defaults();
 
 function showError(e: RenderError | null): void {
@@ -60,7 +59,6 @@ initExport(
   resSelect,
   resCustom,
   dlSvg,
-  copyJson,
   cfg,
   (w, h) => {
     // Not immediate: `input` on the custom-size field fires per keystroke, and

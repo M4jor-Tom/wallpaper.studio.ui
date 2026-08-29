@@ -211,9 +211,9 @@ input[type="number"], input[type="color"], input[type="text"], select {
    rule; below that width it is the media query further down that applies it. */
 .row input[type="checkbox"] { width: 24px; height: 24px; margin: 0; flex: none; }
 .row output { display: block; margin-top: 4px; font: 12px/1.4 ui-monospace, monospace; color: var(--dim); }
-/* three buttons do not fit across the dock's width; the third takes its own row */
-.export-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0; }
-#copy-json { grid-column: 1 / -1; }
+/* the only export there is, so it takes the dock's full width rather than
+   sitting at its content width beside the empty half of a row */
+#dl-svg { width: 100%; }
 
 /* The dock scrolls inside itself, and this used to be a full-width row of the
    page grid that could not be missed. At the end of a scrollable card it sat

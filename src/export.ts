@@ -55,7 +55,6 @@ export function initExport(
   select: HTMLSelectElement,
   custom: HTMLInputElement,
   svgBtn: HTMLButtonElement,
-  copyBtn: HTMLButtonElement,
   cfg: Cfg,
   onSize: (w: number, h: number) => void,
   onError: (message: string | null) => void,
@@ -105,23 +104,6 @@ export function initExport(
       return;
     }
     download(`trihex-${slug(cfg)}-${s.width}x${s.height}.svg`, svg, "image/svg+xml");
-  });
-
-  copyBtn.addEventListener("click", () => {
-    const label = copyBtn.textContent;
-    navigator.clipboard.writeText(JSON.stringify(cfg, null, 2)).then(
-      () => {
-        // aria-live on the button announces the swap; nothing else moves, so
-        // the confirmation has to be on the thing that was pressed.
-        copyBtn.textContent = "Copied";
-        setTimeout(() => {
-          copyBtn.textContent = label;
-        }, 1200);
-      },
-      // an insecure origin or a denied permission rejects, and silence there
-      // is indistinguishable from success
-      (e: unknown) => onError(msg(e)),
-    );
   });
 
   update();
