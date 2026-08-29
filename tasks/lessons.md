@@ -22,3 +22,21 @@ access log: no request in the log means a cache, and the cache key is the URL.
 **Also:** surf's cache lives in `~/.surf/cache/WebKitCache`, not
 `$XDG_CACHE_HOME/surf`. Looking in the XDG location and finding nothing is not
 evidence that no cache exists.
+
+## A green `nix flake check` can have built nothing
+
+**Correction (2026-08-29):** the rewritten `flake.nix` dropped `checks`
+altogether. `nix flake check` still printed *all checks passed*, and I read
+that as the build being clean. It had only evaluated the outputs, and would
+have said the same for a package that does not compile.
+
+**Pattern:** `nix flake check` realises the derivations under `checks`; with no
+such attribute there is nothing to realise and it degrades into a type-check of
+the flake itself. One line fixes it -- `checks.<system>.server` pointing at the
+package, whose check phase already runs `cargo test`.
+
+**Rule for myself:** read the line above *all checks passed*.
+`running 0 flake checks` means nothing was realised, either because there are
+no checks or because the output was already in the store, and neither case
+proves the code builds. To show a check genuinely runs, break one assertion,
+watch the check fail, and put it back.
