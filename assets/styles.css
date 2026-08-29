@@ -22,16 +22,6 @@
   --space: 16px;
 }
 
-/* theme.ts defaults to prefers-color-scheme absent a saved override; mirror
-   that default here so first paint -- before the module script runs and sets
-   data-theme -- doesn't briefly draw light-scheme scrollbars and focus rings
-   on a machine whose OS is dark. Scoped to :not([data-theme]) so it only
-   applies in that pre-script window; once theme.ts sets the attribute (to
-   either value), the rules below take over regardless of OS preference. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) { color-scheme: dark; }
-}
-
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #16212a;
@@ -47,6 +37,28 @@
   --accent-2: #77c9a6;
   --on-accent: #16212a;
   --lift: 0 12px 30px #0007, 0 0 0 1px #ffffff14;
+}
+
+/* The same palette again, for the reader who has never toggled. The preference
+   is a cookie now, and a first visit carries none, so the server cannot know
+   what their OS prefers and no script runs afterwards to correct it -- CSS is
+   the only thing here that can see the preference at all.
+   light-dark() would collapse this and cannot: --page is a gradient and --lift
+   a shadow list whose offsets differ per theme, and it takes colours only. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --page: #16212a;
+    --glass: #1a2731db;
+    --field: #22323e;
+    --rule: #ffffff1c;
+    --ink: #d3e1e9;
+    --dim: #d3e1e9d9;
+    --accent: #6fb7d1;
+    --accent-2: #77c9a6;
+    --on-accent: #16212a;
+    --lift: 0 12px 30px #0007, 0 0 0 1px #ffffff14;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -248,4 +260,32 @@ input[type="number"], input[type="color"], input[type="text"], select {
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* The dock's grid used to be <main>'s. The controls now live in a <form>, so
+   that is what the grid has to be -- same children, same gap, one level in. */
+#cfg {
+  display: grid;
+  gap: var(--space);
+}
+
+/* syncForm() used to set the hidden attribute; these say the same thing with
+   no script. They mirror visible() in src/cfg.rs -- that decides what reaches
+   the renderer, this decides what the reader sees, and the two must agree.
+   [hidden] resolved to display:none through the UA stylesheet, so this is the
+   same rendered result, and :has() is already load-bearing above. */
+#controls:has(#f-icon-ship:checked) [data-field^="icon.hexatri"] { display: none; }
+#controls:not(:has(#f-overlay-matrix:checked)) [data-field^="overlay.matrix."] { display: none; }
+
+/* The button names the theme in force. The server knows which that is only
+   once a cookie exists, so before then the name has to follow the same
+   condition the palette above does -- both spans are in the markup and CSS
+   picks one. display:none takes the unused one out of the accessibility tree,
+   so the button's accessible name is the word actually on it. */
+#theme-toggle [data-theme-name="dark"] { display: none; }
+:root[data-theme="dark"] #theme-toggle [data-theme-name="light"] { display: none; }
+:root[data-theme="dark"] #theme-toggle [data-theme-name="dark"] { display: inline; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) #theme-toggle [data-theme-name="light"] { display: none; }
+  :root:not([data-theme]) #theme-toggle [data-theme-name="dark"] { display: inline; }
 }
