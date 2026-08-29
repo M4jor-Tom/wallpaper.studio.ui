@@ -21,8 +21,25 @@ Everything in this repository. The TypeScript is deleted, not ported alongside;
 the flake is rewritten; `bgsvg` becomes an ordinary Cargo dependency.
 
 **The UI does not change.** Same ids, same classes, same control order, same
-labels, same stylesheet. `src/styles.css` moves to `assets/styles.css` with two
-edits, both forced by the loss of JavaScript and both named below.
+labels, same stylesheet. `src/styles.css` moves to `assets/styles.css` with
+five edits of substance, each named below:
+
+- the two `:has()` rules that replace `syncForm()`'s `hidden` attribute
+- the dark palette stated twice, replacing the one-line `color-scheme` mirror
+  that only had to hold until `theme.ts` ran
+- the theme rules, which are new: the label `theme.ts` wrote into one button is
+  now a choice between two, and CSS is what picks
+- the dock's grid moving from `<main>` to `#cfg`, one level in, since the
+  controls gained a `<form>` around them
+- the covering rule moving from `#preview` to `#stage > svg`, dropping
+  `object-fit: cover` with it — that property only ever reached the `<img>`
+  branch, and the inline branch covers from its own `preserveAspectRatio`
+
+That the list grows is not the claim eroding. Every one of them either keeps
+the rendered result identical across a structural change — a new element to
+select, a grid one level down — or restores in CSS exactly what a deleted
+script did. None of them changes what a reader sees, which is what the claim
+says.
 
 ## Non-goals
 
@@ -97,8 +114,9 @@ fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Reply
 struct Reply { status: u16, headers: Vec<(&'static str, String)>, body: String }
 ```
 
-`main` is a fifteen-line adapter that reads the request, calls `route`, and
-writes the `Reply`. Every test drives `route` directly: no port to allocate, no
+`main` parses `--port` and binds; `serve` is a twenty-line adapter that reads
+the request, calls `route`, and writes the `Reply`. Every test drives `route`
+directly: no port to allocate, no
 thread to join, no ordering to get wrong, and the tests run in sandboxes that
 forbid loopback connections — which the one this was designed in does.
 
@@ -110,7 +128,7 @@ src/cfg.rs                form pairs → serde_json config, and visible()
 src/page.rs               the view model: FIELDS + form values → Control
 templates/page.html       full document
 templates/preview.html    fragment: <svg> plus the out-of-band error banner
-assets/styles.css         today's stylesheet, two edits
+assets/styles.css         today's stylesheet, five edits
 assets/htmx.min.js        htmx 2.0.10, vendored
 ```
 
@@ -254,10 +272,12 @@ per animated element, and inside an `<img>` that query never sees this page's
 preference. Those rest states now always reach a reader who asked for them,
 rather than only when JavaScript noticed and switched delivery.
 
-`fitTo()` goes with it. The stage is `object-fit: cover` against a
-slice-preserving viewBox, so only the *aspect ratio* reaches the eye, and the
-renderer sizes every feature from `min(w,h)/9` — a render at the selected output
-resolution is the same picture the export will be, and CSS scales it. Node count
+`fitTo()` goes with it. The stage is a fixed full-window box and the `<svg>`
+inside it covers from its own `preserveAspectRatio` — `object-fit` never
+reached an inline SVG and goes with the `<img>` it was there for. So only the
+*aspect ratio* reaches the eye, and the renderer sizes every feature from
+`min(w,h)/9` — a render at the selected output resolution is the same picture
+the export will be, and CSS scales it. Node count
 is scale-invariant, so rendering at full resolution costs only digits in the
 markup.
 
@@ -278,7 +298,7 @@ via the out-of-band swap on `/preview` and via a full page render on
 `/download.svg`. Resolution errors from `parse_res` share the banner, as they do
 today.
 
-## Theme, and the one CSS change it forces
+## Theme, and the CSS changes it forces
 
 The preference is a cookie. `POST /theme` sets it to the target the pressed
 button named and returns the page with the posted config intact and
@@ -379,6 +399,7 @@ packages.default = writeShellApplication (windowed {
   query = "?${baseNameOf server}";   # the cache key -- see Caching
 });
 apps.dev         = windowed over `cargo run -- --port 5173`;
+checks.server    = packages.server;
 devShells        = cargo rustc rustfmt clippy protobuf;
 ```
 
@@ -394,6 +415,13 @@ static files. Anything that depended on `packages.default` sees no change.
 `checks.bun-nix` is deleted with the lockfile it guarded. `cargo test` runs in
 `buildRustPackage`'s check phase, so `nix build` now enforces the drift check
 and the route tests that `nix build .#site` never touched.
+
+`checks.server` is that same package, and it is one line for a reason: `nix
+flake check` realises whatever `checks` holds, so with the attribute deleted
+alongside `checks.bun-nix` it printed *all checks passed* having compiled
+nothing — it had only type-checked the flake, and would have said the same for
+a package that does not build. Pointing it at `packages.server` buys a
+`nix flake check` that compiles the binary and runs the tests.
 
 The devShell loses bun, bun2nix and the `bgsvg` CLI. It gains nothing that is
 not a Rust toolchain, and `BGSVG_WASM` is gone from every path that exported it.
@@ -414,8 +442,8 @@ not a Rust toolchain, and `BGSVG_WASM` is gone from every path that exported it.
 | `src/schema.ts` | 66 | `src/schema.rs` |
 | `src/*.test.ts` | 128 | `cargo test` |
 | `tools/descriptor.ts` | 100 | `prost_types` |
-| `tools/drift.ts` | 66 | `tests/drift.rs` |
-| `tools/drift.test.ts` | 66 | `tests/drift.rs` |
+| `tools/drift.ts` | 66 | `src/schema.rs`'s test module |
+| `tools/drift.test.ts` | 66 | `src/schema.rs`'s test module |
 | `package.json`, `bun.lock`, `bun.nix`, `tsconfig.json`, `vite.config.ts` | — | no JavaScript toolchain |
 
 `src/styles.css` moves to `assets/styles.css`. `README.md` is rewritten, since
@@ -433,8 +461,10 @@ every command it documents stops existing. `docs/superpowers/` history and
   document containing a render; `/preview` returns an `<svg>` and a hidden
   banner; an invalid config returns `HX-Reswap: none` and a banner carrying the
   renderer's message; `/download.svg` carries a `Content-Disposition` whose
-  filename matches `Scene::slug()`; `/theme` flips the cookie and echoes the
-  posted values back; an unknown path is a 404.
+  filename matches `Scene::slug()`; `POST /` echoes the posted config back with
+  the theme untouched and no `Set-Cookie`; `/theme` sets the cookie to the
+  target it was sent and echoes the posted values back; an unknown path is a
+  404.
 
 Then, and only then, the window. `tasks/lessons.md` is explicit that a correct
 response proves nothing about what surf draws, so the work is not done until a
@@ -450,6 +480,8 @@ and revealing, and the theme toggling.
 3. Every keystroke is a `127.0.0.1` round trip, debounced at the same 100 ms.
 4. The first paint already carries a render, rather than waiting for a module
    to instantiate.
+5. Enter in *Custom size* re-renders and leaves the address bar at `/`, where
+   with no form on the page it used to do nothing at all.
 
 Everything else — the fixed full-bleed stage, the floating dock at
 `min(320px, 100%)`, the sticky banner, the segmented controls, the control
