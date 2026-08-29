@@ -155,7 +155,12 @@ fn download(form: &Form, theme: &'static str) -> Reply {
 }
 
 pub fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Reply {
-    match (method, url) {
+    // The window is opened on `/?<the build's store name>`, so that a WebKit
+    // cache entry from an older build cannot answer for this one. That key
+    // belongs to the cache and to nothing else: routing is on the path, or
+    // every window nix run opens would be a 404.
+    let path = url.split_once('?').map_or(url, |(p, _)| p);
+    match (method, path) {
         (Method::Get, "/") => page(None, theme_of(cookie), String::new()),
         (Method::Get, "/styles.css") => {
             Reply::new(200, "text/css; charset=utf-8", STYLES.to_string())
@@ -281,6 +286,16 @@ mod tests {
         let js = get("/htmx.min.js");
         assert_eq!(js.status, 200);
         assert!(js.body.contains("htmx"));
+    }
+
+    #[test]
+    fn the_cache_key_in_the_url_is_not_part_of_the_route() {
+        // nix run hands surf `/?wallpaper-studio-ui-0.1.0`; matching on the
+        // whole URL made that exact request a 404, which is a blank window
+        let r = get("/?wallpaper-studio-ui-0.1.0");
+        assert_eq!(r.status, 200);
+        assert!(r.body.contains("<svg"), "the first paint carries a render");
+        assert_eq!(get("/styles.css?anything").status, 200);
     }
 
     #[test]
