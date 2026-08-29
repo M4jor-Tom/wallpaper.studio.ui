@@ -259,11 +259,19 @@
             pkgs.bun
             bun2nix.packages.${pkgs.stdenv.hostPlatform.system}.default
             wallpaper-studio-svg.packages.${pkgs.stdenv.hostPlatform.system}.default
+            pkgs.cargo
+            pkgs.rustc
+            pkgs.clippy
+            pkgs.rustfmt
+            pkgs.protobuf
           ];
 
           # the browser-callable module, from the same locked revision as the
           # bgsvg binary above -- vite.config.ts resolves the @bgsvg alias to it
           BGSVG_WASM = wallpaper-studio-svg.packages.${pkgs.stdenv.hostPlatform.system}.bgsvg-wasm;
+
+          # bgsvg's build.rs shells out to protoc; PROTOC is how prost-build finds it
+          PROTOC = "${pkgs.protobuf}/bin/protoc";
         };
       });
     };
