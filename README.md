@@ -41,7 +41,10 @@ nix run .#dev
 Same window, same shared lifetime, but cargo over your working tree. Nothing
 reloads by itself any more -- the page is built by the binary, so there is no
 HMR left to speak of -- and a rebuild is a `^C` and a rerun. That one does need
-a checkout to run from. Or take the pieces apart:
+a checkout to run from, and it is the one window that can lie to you: `nix run`
+opens a URL keyed to the build's store path, so WebKit cannot answer it from an
+older build's cache, and a dev server has no such key. If the window looks
+older than your checkout, `rm -rf ~/.surf/cache`. Or take the pieces apart:
 
 ```bash
 nix develop
