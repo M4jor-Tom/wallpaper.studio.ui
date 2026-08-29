@@ -110,17 +110,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1787341239,
-        "narHash": "sha256-jGI8EABfhX9sGEUf2iJt1aQa9RPIfQtXHjbr87+7kR4=",
+        "lastModified": 1787661943,
+        "narHash": "sha256-zCIkT/HglLcCXIbHx2zC7pvgW17ysGrpU+ZcYoAYkDY=",
         "ref": "refs/heads/master",
-        "rev": "6daeb1fa261d4dd994330ac06cb8bb457b63de42",
-        "revCount": 69,
+        "rev": "f9ea3ed8ea16b7322568ccdbf51ee555fe85d5c3",
+        "revCount": 71,
         "type": "git",
-        "url": "ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git"
+        "url": "https://github.com/M4jor-Tom/wallpaper.studio.svg.git"
       },
       "original": {
         "type": "git",
-        "url": "ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git"
+        "url": "https://github.com/M4jor-Tom/wallpaper.studio.svg.git"
       }
     }
   },

@@ -19,7 +19,7 @@
     #   nix develop --override-input wallpaper-studio-svg path:../wallpaper.studio.svg
     # Hyphens, not the repository's own dots: nix rejects a dotted input name
     # in --override-input.
-    wallpaper-studio-svg.url = "git+ssh://git@github.com/M4jor-Tom/wallpaper.studio.svg.git";
+    wallpaper-studio-svg.url = "git+https://github.com/M4jor-Tom/wallpaper.studio.svg.git";
     wallpaper-studio-svg.inputs.nixpkgs.follows = "nixpkgs";
 
     # node_modules inside the sandbox, out of bun.lock alone -- packages.site
