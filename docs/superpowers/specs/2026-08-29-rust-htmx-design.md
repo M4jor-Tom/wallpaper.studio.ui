@@ -90,11 +90,24 @@ single-threaded, which is a ceiling worth naming — a second window would wait
 its turn — and the upgrade is `tiny_http`'s own thread pool, three lines away
 if it is ever wanted.
 
+**The socket is not part of the routing.** Every route is one pure function:
+
+```rust
+fn route(method: &Method, url: &str, body: &str, cookie: Option<&str>) -> Reply
+struct Reply { status: u16, headers: Vec<(&'static str, String)>, body: String }
+```
+
+`main` is a fifteen-line adapter that reads the request, calls `route`, and
+writes the `Reply`. Every test drives `route` directly: no port to allocate, no
+thread to join, no ordering to get wrong, and the tests run in sandboxes that
+forbid loopback connections — which the one this was designed in does.
+
 ```
 Cargo.toml / Cargo.lock   the renderer pin
-src/main.rs               listener, route match, cookie, responses
+src/main.rs               route(), the socket adapter, cookie, responses
 src/schema.rs             FIELDS — the one restatement of parameters.proto
 src/cfg.rs                form pairs → serde_json config, and visible()
+src/page.rs               the view model: FIELDS + form values → Control
 templates/page.html       full document
 templates/preview.html    fragment: <svg> plus the out-of-band error banner
 assets/styles.css         today's stylesheet, two edits
@@ -373,12 +386,12 @@ every command it documents stops existing. `docs/superpowers/` history and
 - **`src/cfg.rs`** — the form-to-config mapping, one test per rule in the table
   above, plus the two `visible()` predicates.
 - **`src/schema.rs`** — `FIELDS` against `bgsvg::params::DESCRIPTOR`.
-- **`src/main.rs`** — bind port 0, run the loop on a thread, and drive every
-  route: `/` serves a document containing a render; `/preview` returns an
-  `<svg>` and a hidden banner; an invalid config returns `HX-Reswap: none` and a
-  banner carrying the renderer's message; `/download.svg` carries a
-  `Content-Disposition` whose filename matches `Scene::slug()`; `/theme` flips
-  the cookie and echoes the posted values back.
+- **`src/main.rs`** — `route()` called directly, once per route: `/` serves a
+  document containing a render; `/preview` returns an `<svg>` and a hidden
+  banner; an invalid config returns `HX-Reswap: none` and a banner carrying the
+  renderer's message; `/download.svg` carries a `Content-Disposition` whose
+  filename matches `Scene::slug()`; `/theme` flips the cookie and echoes the
+  posted values back; an unknown path is a 404.
 
 Then, and only then, the window. `tasks/lessons.md` is explicit that a correct
 response proves nothing about what surf draws, so the work is not done until a
